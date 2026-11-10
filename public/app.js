@@ -284,12 +284,41 @@ $('#urlForm').onsubmit = async (e) => {
     const s = await api('/api/lyrics?url=' + encodeURIComponent($('#url').value.trim()));
     await addSong({ ...s, url: $('#url').value.trim() });
     $('#url').value = '';
-  } catch (err) { setStatus(err.message, true); $('#manual').open = true; }
+  } catch (err) { setStatus(err.message + ' Utilisez plutôt le bouton « Coller depuis le presse-papiers ».', true); }
 };
+// Nettoie un texte copié depuis toute une page Genius (Cmd+A) : ne garde que les paroles.
+function cleanPasted(raw) {
+  const L = raw.replace(/\r/g, '').split('\n').map((x) => x.trim() === '' ? '' : x.replace(/\s+$/, ''));
+  let start = L.findIndex((x) => /^\[.+\]$/.test(x.trim()));
+  let title = '';
+  const head = L.slice(0, start < 0 ? L.length : start);
+  const h = head.find((x) => /\sLyrics$/i.test(x.trim()) && x.trim().length < 120);
+  if (h) title = h.trim().replace(/\s+Lyrics$/i, '');
+  if (start < 0) start = h ? L.indexOf(h) + 1 : 0;
+  let end = L.findIndex((x, i) => i > start && /^(\d*\s*Embed|You might also like|About|Credits|Release Date|Comments?)$/i.test(x.trim()));
+  if (end < 0) end = L.length;
+  const lyrics = L.slice(start, end).filter((x) => !/^(You might also like|Read More\s*.*)$/i.test(x.trim()))
+    .join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return { title, lyrics };
+}
+async function useText(raw) {
+  const { title, lyrics } = cleanPasted(raw);
+  if (!lyrics) return setStatus('Rien à importer : copiez d’abord les paroles.', true);
+  const [artist, name] = title.split(/\s[–—-]\s/).length > 1 ? [title.split(/\s[–—-]\s/)[0], title.split(/\s[–—-]\s/).slice(1).join(' - ')] : ['', title];
+  await addSong({ title: $('#mTitle').value.trim() || name || 'Sans titre', artist: $('#mArtist').value.trim() || artist, lyrics });
+}
+$('#pasteBtn').onclick = async () => {
+  try { await useText(await navigator.clipboard.readText()); }
+  catch { $('#manual').open = true; $('#mLyrics').focus(); setStatus('Autorisez l’accès au presse-papiers, ou collez le texte (Cmd+V) dans la zone ci-dessous.', true); }
+};
+$('#mLyrics').addEventListener('paste', (e) => {
+  const txt = e.clipboardData?.getData('text'); if (!txt) return;
+  e.preventDefault(); useText(txt);
+});
 $('#mGo').onclick = async () => {
   const lyrics = $('#mLyrics').value.trim();
   if (!lyrics) return setStatus('Collez des paroles d’abord.', true);
-  await addSong({ title: $('#mTitle').value.trim() || 'Sans titre', artist: $('#mArtist').value.trim(), lyrics });
+  await useText(lyrics);
   $('#mLyrics').value = '';
 };
 

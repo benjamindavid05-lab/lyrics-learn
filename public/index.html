@@ -22,12 +22,18 @@
     <aside class="side">
       <section class="card">
         <h2>Ajouter une chanson</h2>
+        <ol class="small steps">
+          <li>Sur la page Genius : <b>Cmd+A</b> puis <b>Cmd+C</b> (Ctrl sous Windows).</li>
+          <li>Ici : cliquez le bouton ci-dessous.</li>
+        </ol>
+        <button id="pasteBtn" class="primary" type="button">📋 Coller depuis le presse-papiers</button>
+        <details id="urlDetails"><summary>Essayer avec un lien Genius</summary>
         <form id="urlForm">
           <input id="url" type="url" placeholder="https://genius.com/…-lyrics" required>
           <button class="primary">Importer depuis Genius</button>
-        </form>
+        </form></details>
         <details id="manual">
-          <summary>Ou coller les paroles</summary>
+          <summary>Coller à la main</summary>
           <input id="mTitle" placeholder="Titre">
           <input id="mArtist" placeholder="Artiste">
           <textarea id="mLyrics" rows="6" placeholder="Paroles…"></textarea>
