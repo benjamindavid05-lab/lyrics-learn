@@ -544,11 +544,11 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 @keyframes res{0%,45%{opacity:0;transform:translateY(8px)}55%,88%{opacity:1;transform:none}100%{opacity:0}}
 /* 2 : les paroles arrivent, des notes montent */
 .sc2{padding:16px 14px}
-.ln{display:block;height:8px;border-radius:4px;background:#0a0a0a;margin:0 0 11px;width:0;opacity:.8;animation:ln 4.5s ease-out infinite}
-.l1{--w:78%}.l2{--w:58%;animation-delay:.35s}.l3{--w:70%;animation-delay:.7s}.l4{--w:44%;animation-delay:1.05s}
-@keyframes ln{0%{width:0}18%,85%{width:var(--w)}100%{width:0}}
-.nt{position:absolute;right:12px;bottom:6px;font:700 20px/1 var(--serif);opacity:0;animation:rise2 3s ease-in infinite}
-.n1{color:var(--c1)}.n2{right:34px;color:var(--c4);animation-delay:1.4s}
+.sc2 .sl{display:block;height:8px;border-radius:4px;background:#0a0a0a;margin:0 0 11px;width:0;opacity:.8;animation:sln 4.5s ease-out infinite}
+.sc2 .s1{--w:78%}.sc2 .s2{--w:58%;animation-delay:.35s}.sc2 .s3{--w:70%;animation-delay:.7s}.sc2 .s4{--w:44%;animation-delay:1.05s}
+@keyframes sln{0%{width:0}18%,85%{width:var(--w)}100%{width:0}}
+.sc2 .nt{position:absolute;right:12px;bottom:6px;font:700 20px/1 var(--serif);opacity:0;animation:rise2 3s ease-in infinite}
+.sc2 .n1{color:var(--c1)}.sc2 .n2{right:34px;color:var(--c4);animation-delay:1.4s}
 @keyframes rise2{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-70px) rotate(18deg);opacity:0}}
 /* 3 : on clique un mot, sa traduction apparaît */
 .sc3{padding:18px 12px}
@@ -573,9 +573,9 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 @keyframes tick{0%,20%{stroke-dashoffset:22}35%,90%{stroke-dashoffset:0}100%{stroke-dashoffset:22}}
 .xp{position:absolute;right:10px;top:10px;background:#0a0a0a;color:var(--c2);font:700 12px/1 var(--sans);padding:5px 8px;border-radius:99px;opacity:0;animation:xp 4s infinite}
 @keyframes xp{0%,30%{opacity:0;transform:translateY(10px) scale(.6)}40%{opacity:1;transform:translateY(0) scale(1.1)}50%,85%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-8px)}}
-.dots{position:absolute;left:10px;bottom:9px;display:flex;gap:5px}
-.dots i{width:10px;height:10px;border-radius:50%;border:2px solid #0a0a0a;background:#fff;animation:dot 4s infinite}
-.dots i:nth-child(1){animation-delay:0s}.dots i:nth-child(2){animation-delay:.25s}.dots i:nth-child(3){animation-delay:.5s}
+.sdots{position:absolute;left:10px;bottom:9px;display:flex;gap:5px}
+.sdots i{width:10px;height:10px;border-radius:50%;border:2px solid #0a0a0a;background:#fff;animation:dot 4s infinite}
+.sdots i:nth-child(1){animation-delay:0s}.sdots i:nth-child(2){animation-delay:.25s}.sdots i:nth-child(3){animation-delay:.5s}
 @keyframes dot{0%,25%{background:#fff}40%,88%{background:var(--c3)}100%{background:#fff}}
 
 @media(max-width:960px){
@@ -591,7 +591,7 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 @media(prefers-reduced-motion:reduce){
   .floaties,.cta-hint{display:none}
   .btn.pulse,.eq i,.how-n,.how-arr path,.typing,.sc *{animation:none!important}
-  .typing{width:14ch}.sc-res,.bub,.xp{opacity:1}.ln{width:var(--w)}.ck{stroke-dashoffset:0}.sc-cur{display:none}
+  .typing{width:14ch}.sc-res,.bub,.xp{opacity:1}.sc2 .sl{width:var(--w)}.ck{stroke-dashoffset:0}.sc-cur{display:none}
 }
 
 /* ---------- finition ludique ---------- */
