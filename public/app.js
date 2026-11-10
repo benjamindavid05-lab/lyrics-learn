@@ -295,7 +295,7 @@ function cleanPasted(raw) {
   const h = head.find((x) => /\sLyrics$/i.test(x.trim()) && x.trim().length < 120);
   if (h) title = h.trim().replace(/\s+Lyrics$/i, '');
   if (start < 0) start = h ? L.indexOf(h) + 1 : 0;
-  let end = L.findIndex((x, i) => i > start && /^(\d*\s*Embed|You might also like|About|Credits|Release Date|Comments?)$/i.test(x.trim()));
+  let end = L.findIndex((x, i) => i > start && /^(\d*\s*Embed|Share URL|About|Credits|Release Date|Comments?)$/i.test(x.trim()));
   if (end < 0) end = L.length;
   const lyrics = L.slice(start, end).filter((x) => !/^(You might also like|Read More\s*.*)$/i.test(x.trim()))
     .join('\n').replace(/\n{3,}/g, '\n\n').trim();
