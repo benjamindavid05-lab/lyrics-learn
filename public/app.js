@@ -559,7 +559,7 @@ function drawPanel() {
     ${popCtx.note ? `<p class="note"><b>${esc(t('panel.note'))}</b>${esc(popCtx.note)}</p>` : ''}
     <p class="ctx" dir="auto">“${esc(line.text)}”</p>
     ${line.tr ? `<p class="ctxtr">${esc(line.tr)}</p>` : ''}
-    <div class="acts"><button class="btn solid" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? t('panel.saved') : t('panel.save')}</button>
+    <div class="acts"><button class="btn solid" id="pSave" ${inLib || !popCtx.tr ? 'disabled' : ''}>${inLib ? t('panel.saved') : t('panel.save')}</button>
       ${single ? `<button class="btn" id="pGoal">${inGoal ? t('panel.goalRemove') : t('panel.goalAdd')}</button>` : ''}</div>`;
 }
 
@@ -603,6 +603,7 @@ pop.addEventListener('click', (e) => {
   if (!popCtx || !s) return;
   if (b.id === 'pRetry') { wordCache.delete(`${state.target}|${popCtx.text}|${popCtx.lineIdx}`); return openPop(popCtx.text, popCtx.lineIdx); }
   if (b.id === 'pSave') {
+    if (!popCtx.tr) return; // on n'enregistre jamais un mot sans sa traduction
     const l = s.lines[popCtx.lineIdx];
     state.library.unshift({ id: crypto.randomUUID(), text: popCtx.text, tr: popCtx.tr, rm: popCtx.rm, lang: state.target, src: normLang(s.source) || guessScript(popCtx.text) || guessScript(l.text), sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
     save(); render(); drawPanel();
@@ -716,9 +717,29 @@ let libLang = 'all';
 const ui = () => getLang();
 const flagHtml = (code) => `<span class="flag" aria-hidden="true">${flagOf(code)}</span>`;
 
+let libFilling = false;
+async function backfillLibrary() {
+  if (libFilling) return;
+  const missing = state.library.filter((e) => !e.tr && e.text && !e.fillTried).slice(0, 40);
+  if (!missing.length) return;
+  libFilling = true;
+  try {
+    const byLang = {};
+    missing.forEach((e) => { e.fillTried = true; (byLang[e.lang || state.target] ||= []).push(e); });
+    for (const [lang, list] of Object.entries(byLang)) {
+      try {
+        const { results } = await api('/api/translate-words', { items: list.map((e) => ({ text: e.text, context: e.sentence || '' })), target: lang, source: list[0].src || 'auto', fast: true });
+        results.forEach((r, i) => { if (r && r.text) { list[i].tr = r.text; list[i].rm = list[i].rm || r.translit || ''; list[i].lang = lang; } });
+      } catch { list.forEach((e) => { e.fillTried = false; }); }
+    }
+    save();
+  } finally { libFilling = false; }
+  renderLibrary();
+}
 function renderLibrary() {
   $('#libCount').textContent = state.library.length;
   migrateLibrary();
+  backfillLibrary();
   const q = norm($('#libSearch').value || '');
   const count = {};
   for (const e of state.library) count[e.src || ''] = (count[e.src || ''] || 0) + 1;
@@ -732,7 +753,7 @@ function renderLibrary() {
   const match = (e) => !q || norm(`${e.text} ${e.tr} ${e.title} ${e.artist} ${e.sentence}`).includes(q);
   const row = (e) => `<li data-id="${e.id}">
     <span class="e"><bdi>${esc(e.text)}</bdi></span>
-    <span class="m">${esc(e.tr)}<div class="s">${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
+    <span class="m">${e.tr ? esc(e.tr) : '<span class="muted">…</span>'}<div class="s">${e.lang ? `${flagOf(e.lang)} ${esc(langName(e.lang, ui()))} · ` : ''}${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
     <button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`;
   $('#libEmpty').hidden = state.library.length > 0;
   $('#libEmpty').innerHTML = libEmptyHtml(t);
@@ -756,7 +777,7 @@ $('#libList').addEventListener('click', (e) => {
 });
 $('#export').onclick = () => {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = state.library.map((e) => [e.text, e.tr, e.sentence, e.sentenceTr, `${e.title} - ${e.artist}`, langName(e.src, ui())].map(q).join(';')).join('\n');
+  const csv = state.library.map((e) => [e.text, e.tr, e.sentence, e.sentenceTr, `${e.title} - ${e.artist}`, langName(e.src, ui()), langName(e.lang, ui())].map(q).join(';')).join('\n');
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })), download: t('csv.name') });
   a.click(); URL.revokeObjectURL(a.href);
 };
