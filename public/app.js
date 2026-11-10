@@ -1,5 +1,6 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
+import { initDemo } from './demo.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
 import { SAMPLE_SONG, howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
@@ -951,6 +952,7 @@ try {
 } catch {}
 await initLanguages();
 applyStatic();
+initDemo();
 drawPanel();
 render();
 showTab('home');

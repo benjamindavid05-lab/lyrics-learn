@@ -193,6 +193,7 @@ export function setLang(l) {
   try { localStorage.setItem('ll_ui', lang); } catch {}
   document.documentElement.lang = lang;
   applyStatic();
+  document.dispatchEvent(new Event('ll:lang'));
 }
 // Applique la langue aux textes fixes de la page (attributs data-i18n*).
 export function applyStatic(root = document) {

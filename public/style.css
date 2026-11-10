@@ -320,6 +320,7 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 .demo2{min-width:0}
 .d-win{container-type:inline-size;position:relative;aspect-ratio:16/10;border:1px solid var(--ink);background:var(--card);overflow:hidden;box-shadow:8px 8px 0 var(--ink)}
 .d-bar{display:flex;gap:1.6cqw;padding:2cqw 3cqw;border-bottom:1px solid var(--ink)}
+.d-pair{margin-left:auto;font:600 2.3cqw/1 var(--sans);letter-spacing:.04em;align-self:center;white-space:nowrap}
 .d-bar i{width:2cqw;height:2cqw;border:1px solid var(--ink);border-radius:50%}
 .d-lyrics{position:absolute;left:5cqw;top:15cqw;width:50cqw}
 .d-l{font:400 7cqw/1.2 var(--serif);direction:rtl;text-align:right;white-space:nowrap}
