@@ -40,6 +40,7 @@ async function addSong({ title, artist, url, lyrics }) {
   save();
   $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
   if (songsDlg.open) songsDlg.close();
+  showTab('song');
   translateSong(); // en arrière-plan : la chanson s'affiche tout de suite
 }
 
@@ -157,6 +158,7 @@ $('#tip1x').onclick = () => { tipSeen = true; try { localStorage.setItem('ll_tip
 
 function render() {
   renderSongList(); renderLibrary();
+  if (currentTab === 'home') renderHome();
   const s = song();
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
   $('#songTab').classList.toggle('nosong', !s);
@@ -201,6 +203,34 @@ function renderSongList() {
     : '<li class="small">Aucune chanson pour l’instant.</li>';
 }
 
+// ---------- accueil ----------
+function renderHome() {
+  const songs = Object.values(state.songs).sort((a, b) => b.added - a.added);
+  const learned = songs.reduce((n, x) => n + x.goal.words.filter((w) => w.done).length, 0);
+  $('#stats').innerHTML = [[songs.length, songs.length > 1 ? 'Chansons' : 'Chanson'], [state.library.length, 'Mots enregistrés'], [learned, 'Mots appris']]
+    .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
+  $('#homeResume').hidden = !song();
+  $('#homeSongs').innerHTML = songs.map((x) => {
+    const done = x.goal.words.filter((w) => w.done).length, tot = x.goal.words.length;
+    return `<div class="card" data-id="${x.id}" role="button" tabindex="0">
+      <button class="del" data-del="${x.id}" aria-label="Supprimer">✕</button>
+      <div><div class="ct1">${esc(x.artist || 'Chanson')}</div><h3 dir="auto">${esc(x.title)}</h3></div>
+      <div><div class="mini"><span>${tot ? `${done} / ${tot} mots appris` : 'Pas d’objectif'}</span><span>${esc(x.id === state.current ? 'En cours' : '')}</span></div>
+        <div class="minibar"><i style="width:${tot ? (done / tot) * 100 : 0}%"></i></div></div></div>`;
+  }).join('') + '<button class="card new" id="homeNew" type="button"><span>+</span><small>Nouvelle chanson</small></button>';
+}
+$('#homeSongs').addEventListener('click', async (e) => {
+  if (e.target.closest('#homeNew')) return songsDlg.showModal();
+  const del = e.target.closest('[data-del]');
+  if (del) { delete state.songs[del.dataset.del]; if (state.current === del.dataset.del) state.current = null; save(); render(); return; }
+  const card = e.target.closest('.card[data-id]'); if (!card) return;
+  state.current = card.dataset.id; save(); render(); showTab('song');
+  if (song().target !== state.target) await translateSong();
+});
+$('#homeSongs').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.card[data-id]')) { e.preventDefault(); e.target.click(); } });
+$('#homeAdd').onclick = () => songsDlg.showModal();
+$('#homeResume').onclick = () => showTab('song');
+
 // ---------- lecteur : Spotify, Apple Music, Deezer, YouTube, SoundCloud ----------
 function parsePlayer(input) {
   let raw = String(input).trim();
@@ -211,7 +241,7 @@ function parsePlayer(input) {
   const path = u.pathname;
   let m;
   if (h === 'spotify.com' && (m = path.match(/\/(track|album|playlist|episode|show)\/([A-Za-z0-9]{10,30})/)))
-    return { provider: 'Spotify', src: `https://open.spotify.com/embed/${m[1]}/${m[2]}`, h: /track|episode/.test(m[1]) ? 152 : 352 };
+    return { provider: 'Spotify', src: `https://open.spotify.com/embed/${m[1]}/${m[2]}`, h: m[1] === 'track' ? 80 : m[1] === 'episode' ? 152 : 352 };
   if (h === 'apple.com' && /^\/[a-z]{2}\/(album|song|playlist)\//i.test(path)) {
     const i = u.searchParams.get('i');
     return { provider: 'Apple Music', src: 'https://embed.music.apple.com' + path.replace(/[^A-Za-z0-9/_%.\-]/g, '') + (i && /^\d+$/.test(i) ? `?i=${i}` : ''), h: /\/song\//.test(path) || i ? 175 : 450 };
@@ -238,7 +268,7 @@ function renderPlayer() {
   if (p && !playerEditing) {
     box.innerHTML = `<div class="pbar"><span class="label">Écouter · ${esc(p.provider)}</span>
         <button class="link" data-p="change">Changer</button><button class="link" data-p="remove">Retirer</button></div>
-      <iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${p.h ? `height="${p.h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+      <iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${(/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h) ? `height="${/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
         allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="Lecteur ${esc(p.provider)}"></iframe>
       <p class="pnote">Selon le service, l’écoute complète demande d’être connecté à votre compte dans ce navigateur ; sinon un extrait est joué.</p>`;
   } else if (playerEditing || p) {
@@ -468,11 +498,17 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // ---------- navigation / événements ----------
-document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = () => {
-  document.querySelectorAll('.nav button[data-tab]').forEach((x) => x.classList.toggle('active', x === b));
-  $('#songTab').hidden = b.dataset.tab !== 'song'; $('#libraryTab').hidden = b.dataset.tab !== 'library';
-  closePop(); hideTip();
-});
+let currentTab = 'home';
+function showTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.nav button[data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
+  $('#homeTab').hidden = name !== 'home'; $('#songTab').hidden = name !== 'song'; $('#libraryTab').hidden = name !== 'library';
+  closePop(); hideTip(); window.scrollTo(0, 0);
+  if (name === 'home') renderHome();
+}
+document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
+$('#brand').onclick = (e) => { e.preventDefault(); showTab('home'); };
+
 $('#showTr').onchange = render;
 $('#target').onchange = async () => {
   state.target = $('#target').value; save();
@@ -482,7 +518,7 @@ $('#songList').addEventListener('click', async (e) => {
   const del = e.target.dataset.del;
   if (del) { delete state.songs[del]; if (state.current === del) state.current = null; save(); return render(); }
   const li = e.target.closest('li[data-id]'); if (!li) return;
-  state.current = li.dataset.id; save(); closePop(); songsDlg.close();
+  state.current = li.dataset.id; save(); closePop(); songsDlg.close(); showTab('song');
   if (song().target !== state.target) await translateSong(); else render();
 });
 // Nettoie un texte copié depuis toute une page Genius (Cmd+A) : ne garde que les paroles.
@@ -610,3 +646,4 @@ try {
 await initLanguages();
 drawPanel();
 render();
+showTab('home');

@@ -4,32 +4,85 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Lyrics Learn · apprendre une langue avec les paroles</title>
+  <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <!-- logo : une note de musique dont la hampe est un stylo plume (hérite de la couleur du texte) -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+    <defs>
+      <linearGradient id="ll-g" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#46e0c9"/><stop offset=".55" stop-color="#a9e8a1"/><stop offset="1" stop-color="#e6e87b"/>
+      </linearGradient>
+      <mask id="ll-cut" maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
+        <rect width="64" height="64" fill="#fff"/>
+        <rect x="28" y="35.2" width="14" height="1.3" fill="#000"/>
+        <rect x="28" y="12.4" width="14" height="1.1" fill="#000"/>
+        <circle cx="35" cy="40.4" r="1.6" fill="#000"/>
+        <rect x="34.4" y="40.4" width="1.2" height="3.4" fill="#000"/>
+      </mask>
+      <symbol id="mark" viewBox="0 0 64 64">
+        <g transform="translate(2.5 0)">
+          <g mask="url(#ll-cut)" fill="currentColor">
+            <ellipse cx="24.2" cy="48.6" rx="11" ry="7.6" transform="rotate(-24 24.2 48.6)"/>
+            <rect x="31.2" y="6.5" width="7.4" height="29.4" rx="2.3"/>
+            <path d="M30.8 36.6h8.2l-1.3 6.8-2.8 4.8-2.8-4.8z"/>
+          </g>
+          <path d="M38.6 7c3.6 8.8 15 10.8 13.2 27.6-2.8-8.8-7.6-11.6-13.2-12.6z" fill="url(#ll-g)"/>
+        </g>
+      </symbol>
+    </defs>
+  </svg>
+
   <header class="top">
-    <div class="brand">Lyrics Learn</div>
+    <a class="brand" href="#" id="brand" aria-label="Lyrics Learn, accueil"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span>Lyrics Learn</span></a>
     <nav class="nav" aria-label="Navigation">
-      <button data-tab="song" class="active">Lecture</button>
+      <button data-tab="home" class="active">Accueil</button>
+      <button data-tab="song">Lecture</button>
       <button data-tab="library">Bibliothèque <span id="libCount" class="count">0</span></button>
-      <button id="openSongs" type="button">Mes chansons</button>
     </nav>
+    <button id="openSongs" class="btn solid sm" type="button">+ Chanson</button>
     <label class="lang"><span>Traduire en</span>
       <select id="target"></select>
     </label>
   </header>
 
-  <main id="songTab" class="stage">
+  <!-- ACCUEIL -->
+  <main id="homeTab" class="home">
+    <section class="hhero">
+      <div class="label">Apprendre par la chanson</div>
+      <h1 class="display">Apprenez une langue avec vos chansons.</h1>
+      <p class="lead">Importez les paroles, lisez-les avec leur traduction, choisissez les mots à retenir, et retrouvez chacun avec la phrase d’où il vient.</p>
+      <div class="ctas">
+        <button id="homeAdd" class="btn solid" type="button">Ajouter une chanson</button>
+        <button id="homeResume" class="btn" type="button" hidden>Reprendre la lecture</button>
+      </div>
+    </section>
+    <section id="stats" class="stats" aria-label="Votre progression"></section>
+    <section class="hblock">
+      <div class="label">Mes chansons</div>
+      <div id="homeSongs" class="cards"></div>
+    </section>
+    <section class="hblock">
+      <div class="label">Comment ça marche</div>
+      <ol class="steps">
+        <li><span>01</span><p>Ajoutez une chanson : les paroles sont importées puis traduites ligne par ligne.</p></li>
+        <li><span>02</span><p>Cliquez un mot, ou sélectionnez une expression, pour la traduire et l’enregistrer.</p></li>
+        <li><span>03</span><p>Fixez un objectif de mots : ils sont mis en relief dans les paroles.</p></li>
+        <li><span>04</span><p>Retrouvez vos mots dans la bibliothèque, avec la phrase de la chanson dont ils viennent.</p></li>
+      </ol>
+    </section>
+  </main>
+
+  <!-- LECTURE -->
+  <main id="songTab" class="stage" hidden>
     <section class="reader">
       <div id="empty" class="hero">
-        <div class="label">Apprendre par la chanson</div>
-        <h1 class="display">Apprenez une langue avec vos chansons.</h1>
-        <ol class="steps">
-          <li><span>01</span><p>Ajoutez une chanson : les paroles sont importées puis traduites.</p></li>
-          <li><span>02</span><p>Cliquez un mot, ou sélectionnez une expression, pour la traduire et l’enregistrer.</p></li>
-          <li><span>03</span><p>Fixez un objectif de mots : ils sont mis en relief dans les paroles.</p></li>
-        </ol>
-        <button id="heroAdd" class="btn solid" type="button">Ajouter une chanson</button>
+        <div class="label">Lecture</div>
+        <h1 class="display">Aucune chanson ouverte.</h1>
+        <div class="ctas">
+          <button id="heroAdd" class="btn solid" type="button">Ajouter une chanson</button>
+        </div>
       </div>
 
       <article id="songView" hidden>
@@ -63,6 +116,7 @@
     </aside>
   </main>
 
+  <!-- BIBLIOTHÈQUE -->
   <main id="libraryTab" class="library" hidden>
     <div class="label">Bibliothèque</div>
     <h1 class="display">Vos mots.</h1>
