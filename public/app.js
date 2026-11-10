@@ -561,22 +561,52 @@ const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
 const MOD = MAC ? '⌘' : 'Ctrl';
 const slugToQuery = (u) => decodeURIComponent(new URL(u).pathname.replace(/^\//, '').replace(/-lyrics.*$/i, '')).replace(/-/g, ' ');
 
-$('#searchForm').onsubmit = async (e) => {
-  e.preventDefault();
-  const q = $('#q').value.trim(); $('#hits').innerHTML = '';
-  if (/^https?:\/\/(www\.)?genius\.com\//i.test(q)) {
-    // lien direct : pas besoin de recherche
-    return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '', guessed: true });
-  }
-  setStatus('Recherche…');
+// Recherche : au fil de la frappe (aperçu) et à l'envoi du formulaire.
+let searchSeq = 0, hitList = [], hitIdx = -1;
+const GENIUS_LINK = /^https?:\/\/(www\.)?genius\.com\//i;
+
+function renderHits(hits) {
+  hitList = hits; hitIdx = -1;
+  $('#hits').innerHTML = hits.map((h, i) => `<li data-i="${i}"><img src="${esc(h.thumb)}" alt=""><span><b dir="auto">${esc(h.title)}</b><small>${esc(h.artist)}</small></span></li>`).join('');
+}
+$('#hits').addEventListener('click', (ev) => { const li = ev.target.closest('li'); if (li && hitList[Number(li.dataset.i)]) openImport(hitList[Number(li.dataset.i)]); });
+
+async function runSearch(q, live) {
+  const seq = ++searchSeq;
+  setStatus(live ? '' : 'Recherche…');
   try {
     const r = await api('/api/search?q=' + encodeURIComponent(q));
+    if (seq !== searchSeq) return; // une recherche plus récente a pris le relais
     if (r.needsToken) return setStatus('Recherche non configurée : ajoutez GENIUS_TOKEN (voir README). Vous pouvez coller un lien Genius à la place.', true);
+    renderHits(r.hits);
     setStatus(r.hits.length ? '' : 'Aucun résultat.', !r.hits.length);
-    $('#hits').innerHTML = r.hits.map((h, i) => `<li data-i="${i}"><img src="${esc(h.thumb)}" alt=""><span><b dir="auto">${esc(h.title)}</b><small>${esc(h.artist)}</small></span></li>`).join('');
-    $('#hits').onclick = (ev) => { const li = ev.target.closest('li'); if (li) openImport(r.hits[Number(li.dataset.i)]); };
-  } catch (err) { setStatus(err.message + ' En attendant, vous pouvez coller directement un lien Genius dans ce champ.', true); }
+  } catch (err) {
+    if (seq === searchSeq) setStatus(err.message + ' En attendant, vous pouvez coller directement un lien Genius dans ce champ.', true);
+  }
+}
+
+$('#searchForm').onsubmit = (e) => {
+  e.preventDefault();
+  const q = $('#q').value.trim();
+  if (GENIUS_LINK.test(q)) { renderHits([]); return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '', guessed: true }); }
+  if (hitIdx >= 0 && hitList[hitIdx]) return openImport(hitList[hitIdx]);
+  runSearch(q, false);
 };
+
+let liveTimer;
+$('#q').addEventListener('input', () => {
+  clearTimeout(liveTimer);
+  const q = $('#q').value.trim();
+  if (q.length < 2 || GENIUS_LINK.test(q)) { searchSeq++; renderHits([]); if (q.length < 2) setStatus(''); return; }
+  liveTimer = setTimeout(() => runSearch(q, true), 300);
+});
+$('#q').addEventListener('keydown', (e) => {
+  if (!hitList.length || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return;
+  e.preventDefault();
+  hitIdx = (hitIdx + (e.key === 'ArrowDown' ? 1 : -1) + hitList.length) % hitList.length;
+  document.querySelectorAll('#hits li').forEach((li, k) => li.classList.toggle('sel', k === hitIdx));
+  document.querySelector('#hits li.sel')?.scrollIntoView({ block: 'nearest' });
+});
 
 const dlg = $('#dlg');
 let watcher = null;

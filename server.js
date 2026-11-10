@@ -18,6 +18,7 @@ try { // mini chargeur .env (GENIUS_TOKEN=...)
   console.log(`.env lu : ${found.length ? found.join(', ') : 'aucune clé trouvée'}`);
   if (/^\{\\rtf/.test(raw.trim())) console.log('⚠ .env est en « texte enrichi » (TextEdit) : Format > Convertir au format texte, puis enregistrez.');
 } catch { console.log('.env introuvable : copiez .env.example en .env'); }
+const searchCache = new Map(); // évite de rappeler Genius pour la même recherche
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const PORT = process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -51,7 +52,10 @@ async function api(req, res, url) {
     if (url.pathname === '/api/search') {
       const token = process.env.GENIUS_TOKEN;
       if (!token) return json(res, 200, { needsToken: true, hits: [] });
-      const r = await fetch('https://api.genius.com/search?per_page=8&q=' + encodeURIComponent(url.searchParams.get('q') || ''), {
+      const q = (url.searchParams.get('q') || '').trim().slice(0, 100);
+      const ck = q.toLowerCase(), hit = searchCache.get(ck);
+      if (hit && Date.now() - hit.at < 60000) return json(res, 200, { hits: hit.hits });
+      const r = await fetch('https://api.genius.com/search?per_page=8&q=' + encodeURIComponent(q), {
         headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(10000)
       });
       if (!r.ok) throw new Error(r.status === 401 ? 'Jeton Genius refusé : il faut le « Client Access Token » (voir /api/genius-check).' : `Recherche Genius indisponible (${r.status})`);
@@ -59,6 +63,8 @@ async function api(req, res, url) {
       const hits = (data.response?.hits || []).filter((h) => h.type === 'song').map(({ result: x }) => ({
         title: x.title, artist: x.primary_artist?.name || '', url: x.url, thumb: x.song_art_image_thumbnail_url || ''
       }));
+      if (searchCache.size > 200) searchCache.clear();
+      searchCache.set(ck, { at: Date.now(), hits });
       return json(res, 200, { hits });
     }
     if (url.pathname === '/api/lyrics' && req.method === 'GET') {
