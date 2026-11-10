@@ -99,4 +99,3 @@ kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;bo
 @keyframes t{0%,50%{opacity:0}55%,85%{opacity:1}95%,100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.demo *{animation:none!important}.demo .sel{transform:none}}
 [hidden]{display:none!important}
-.dlg.wide{width:min(980px,96vw)}.gframe{width:100%;height:46vh;border:1px solid var(--line);border-radius:10px;margin-top:8px;background:#fff}
