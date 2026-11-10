@@ -400,7 +400,7 @@ function setPlayer(s, url, overwrite = false) {
 }
 function pickPlayer(s) {
   if (s.playerPref && s.players[s.playerPref]) return;
-  const have = SERVICES.map(([k]) => k).filter((k) => s.players[k]);
+  const have = ['youtube', 'soundcloud', 'spotify', 'deezer', 'apple'].filter((k) => s.players[k]);
   s.playerPref = pref && s.players[pref] ? pref : (have[0] || '');
 }
 const renderIfCurrent = (s) => { if (state.current === s.id) renderPlayer(); };
@@ -424,24 +424,27 @@ async function loadMedia(s) {
       } catch { /* pas bloquant */ }
     }
     pickPlayer(s);
-  } finally { s.finding = false; s.mediaLoaded = true; save(); renderIfCurrent(s); }
+  } finally { s.finding = false; s.mediaLoaded = true; s.mediaV = 2; save(); renderIfCurrent(s); renderSyncBar(s); }
 }
-const ensureMedia = (s) => { if (s && !s.mediaLoaded && !s.finding) loadMedia(s); };
+const ensureMedia = (s) => { if (s && (!s.mediaLoaded || s.mediaV !== 2) && !s.finding) loadMedia(s); };
 
 // ---------- surlignage synchronisé avec la musique (mot à mot) ----------
 let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
 let follow = true; try { follow = localStorage.getItem('ll_follow') !== '0'; } catch {}
-function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerSeen = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
+function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerSeen = false; playerPreview = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
 function clearPlaying() {
   if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
 }
-let manualOn = false, manualSong = '', playerSeen = false;
+let manualOn = false, manualSong = '', playerSeen = false, playerPreview = false;
 // positions envoyées par le lecteur (Spotify, YouTube, SoundCloud)
 function onTick(pos, playing, dur) {
+  if (window.__syncDebug) console.log('[sync] position', pos.toFixed(1), playing ? 'play' : 'pause', 'durée', dur);
   const s0 = song();
   if (manualOn && s0 && manualSong === s0.id) return; // mode manuel : l'horloge interne prend le relais
-  if (!playerSeen) { playerSeen = true; if (s0) renderSyncBar(s0); }
+  // Spotify non connecté : lecture d'un extrait de 30 s dont la position ne correspond pas à celle de la chanson
+  const prev = !!(dur && dur < 45 && s0 && s0.sync && s0.sync.dur > 90);
+  if (!playerSeen || prev !== playerPreview) { playerSeen = true; playerPreview = prev; if (s0) renderSyncBar(s0); }
   feed(pos, playing, dur);
 }
 function feed(pos, playing, dur) {
@@ -504,7 +507,7 @@ function renderSyncBar(s, p) {
     const mode = exactShare >= 0.6 ? t('sync.exact') : t('sync.approx');
     const mine = manualOn && manualSong === s.id;
     const link = canSync(p.provider)
-      ? (mine ? `<span class="syncst"><b class="dot man"></b>${esc(t('sync.manualOn'))}</span>` : playerSeen ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.connected'))}</span>` : `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.waiting'))}</span>`)
+      ? (mine ? `<span class="syncst"><b class="dot man"></b>${esc(t('sync.manualOn'))}</span>` : playerSeen && playerPreview ? `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.preview'))}${s.players.youtube && s.playerPref !== 'youtube' ? ` <button type="button" class="btn sm solid" data-switch="youtube">${esc(t('sync.toYoutube'))}</button>` : ''}</span>` : playerSeen ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.connected'))}</span>` : `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.waiting'))}</span>`)
       : `<span class="syncst"><b class="dot man"></b>${esc(t('sync.unsupported'))}</span>`;
     const manual = mine
       ? `<button type="button" class="btn sm" data-man="toggle">${syncPlaying ? '⏸ ' + esc(t('sync.pause')) : '▶ ' + esc(t('sync.resume'))}</button> <button type="button" class="link" data-man="restart">↺ ${esc(t('sync.restart'))}</button> <button type="button" class="link" data-man="off">✕ ${esc(t('sync.auto'))}</button>`
@@ -519,6 +522,8 @@ function renderSyncBar(s, p) {
 }
 $('#syncBar').addEventListener('click', (e) => {
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
+  const sw = e.target.closest('[data-switch]');
+  if (sw && s.players[sw.dataset.switch]) { s.playerPref = pref = sw.dataset.switch; try { localStorage.setItem('ll_pp', pref); } catch {} save(); renderPlayer(); return; }
   const man = e.target.closest('[data-man]');
   if (man) {
     const k = man.dataset.man;

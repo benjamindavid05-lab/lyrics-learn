@@ -103,9 +103,41 @@ async function spotify(wt, wa) {
   return '';
 }
 
+// Sans clé : résultats publics de recherche YouTube (on ne garde que des vidéos intégrables dont le titre ressemble au morceau)
+const BAD = /\b(live|cover|karaoke|acoustic|session|remix|reaction|instrumental|slowed|sped|nightcore|8d|tutorial|lesson|piano|guitar|fernsehgarten|translation|traduction|subtitulado)\b/i;
+export function parseYoutubeResults(html) {
+  const out = [];
+  for (const m of String(html).matchAll(/"videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})".*?"title":\{"runs":\[\{"text":"(.*?)"\}\].*?"ownerText":\{"runs":\[\{"text":"(.*?)"/g)) {
+    const un = (x) => x.replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\u([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+    out.push({ id: m[1], title: un(m[2]), channel: un(m[3]) });
+    if (out.length >= 12) break;
+  }
+  return out;
+}
+async function youtubeScrape(wt, wa) {
+  const r = await fetch('https://www.youtube.com/results?search_query=' + q(`${wa[0] || ''} ${wt[0]} official video`.trim()), {
+    headers: { 'user-agent': 'Mozilla/5.0 (compatible; LyricsLearn/1.0)', 'accept-language': 'en', cookie: 'CONSENT=YES+1' }, signal: AbortSignal.timeout(9000)
+  });
+  if (!r.ok) return '';
+  const cands = parseYoutubeResults(await r.text()).map((c) => {
+    let sc = 0;
+    if (!wt.some((w) => sim(c.title, w) >= 0.4 || norm(c.title).includes(norm(w)))) return { ...c, sc: -1 };
+    if (BAD.test(c.title)) return { ...c, sc: -1 };
+    if (wa.length && wa.some((a) => sim(c.channel, a) >= 0.5 || norm(c.channel).includes(norm(a)))) sc += 3;
+    if (wa.length && wa.some((a) => norm(c.title).includes(norm(a)))) sc += 2;
+    if (/official/i.test(c.title)) sc += 2; if (/lyric|audio/i.test(c.title)) sc += 1;
+    return { ...c, sc };
+  }).filter((c) => c.sc >= 2).sort((a, b) => b.sc - a.sc);
+  for (const c of cands.slice(0, 4)) {
+    // oEmbed refuse (401) les vidéos dont l'intégration est interdite
+    try { const o = await fetch('https://www.youtube.com/oembed?format=json&url=' + q('https://www.youtube.com/watch?v=' + c.id), { signal: AbortSignal.timeout(6000) }); if (o.ok) return `https://www.youtube.com/watch?v=${c.id}`; } catch { /* suivant */ }
+  }
+  return '';
+}
+
 async function youtube(wt, wa) {
   const key = process.env.YOUTUBE_API_KEY;
-  if (!key) return '';
+  if (!key) return youtubeScrape(wt, wa);
   const d = await getJson(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${q(`${wa[0] || ''} ${wt[0]}`.trim())}&key=${q(key)}`);
   for (const it of d.items || []) {
     const title = it.snippet?.title || '', chan = it.snippet?.channelTitle || '';
