@@ -276,3 +276,9 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 }
 
 .hits li.sel{background:var(--card);outline:1px solid var(--ink);outline-offset:-1px}
+
+/* écouter sur… */
+.listen{display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center;margin:14px 0 4px}
+.listen .label{color:var(--dim)}
+.listen a{font:600 11px var(--sans);letter-spacing:.16em;text-transform:uppercase;text-decoration:underline;text-underline-offset:5px;text-decoration-thickness:1px;color:var(--ink)}
+.listen a:hover{text-decoration-thickness:2px}

@@ -32,16 +32,17 @@ function lineKind(t) {
   return /^\[.*\]$/.test(t.trim()) ? 'sec' : 'line';
 }
 
-async function addSong({ title, artist, url, lyrics }) {
+async function addSong({ title, artist, url, lyrics, gid }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
-  state.songs[id] = { id, title, artist, url: url || '', lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
+  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
   state.current = id;
   save();
   $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
   if (songsDlg.open) songsDlg.close();
   showTab('song');
-  translateSong(); // en arrière-plan : la chanson s'affiche tout de suite
+  translateSong(); // en arrière-plan
+  loadMedia(state.songs[id]); // liens d'écoute connus de Genius : la chanson s'affiche tout de suite
 }
 
 let geminiOn = false;
@@ -178,6 +179,7 @@ function render() {
     return `<div class="ln${activeLine === i ? ' active' : ''}" data-i="${i}"><div class="orig" dir="auto">${wordsHtml(l.text, i)}</div>${tr}</div>`;
   }).join('');
   renderPlayer();
+  renderListen();
   renderGoal();
 }
 
@@ -255,6 +257,44 @@ function parsePlayer(input) {
   if (h === 'soundcloud.com' && /^\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+/.test(path))
     return { provider: 'SoundCloud', src: 'https://w.soundcloud.com/player/?url=' + encodeURIComponent('https://soundcloud.com' + path.replace(/[^A-Za-z0-9/_-]/g, '')) + '&color=%23000000&hide_related=true&show_comments=false', h: 166 };
   return null;
+}
+
+// ---------- écouter ailleurs : liens Spotify, Apple Music, Deezer, YouTube, SoundCloud ----------
+const HOSTS = { spotify: /(^|\.)spotify\.com$/, youtube: /(^|\.)(youtube\.com|youtu\.be)$/, soundcloud: /(^|\.)soundcloud\.com$/ };
+function safeLink(u, kind) {
+  try { const x = new URL(u); return /^https?:$/.test(x.protocol) && HOSTS[kind].test(x.hostname) ? x.href : ''; } catch { return ''; }
+}
+function listenLinks(s) {
+  const q = encodeURIComponent([s.artist, s.title].filter(Boolean).join(' ').trim());
+  const m = s.media || {};
+  return [
+    ['Spotify', safeLink(m.spotify, 'spotify') || `https://open.spotify.com/search/${q}`],
+    ['Apple Music', `https://music.apple.com/search?term=${q}`],
+    ['Deezer', `https://www.deezer.com/search/${q}`],
+    ['YouTube', safeLink(m.youtube, 'youtube') || `https://www.youtube.com/results?search_query=${q}`],
+    ['SoundCloud', safeLink(m.soundcloud, 'soundcloud') || `https://soundcloud.com/search?q=${q}`]
+  ];
+}
+function renderListen() {
+  const s = song(); if (!s) return;
+  $('#listen').innerHTML = '<span class="label">Écouter sur</span>' + listenLinks(s)
+    .map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join('');
+}
+async function loadMedia(s) {
+  if (!s || !s.gid) return;
+  try {
+    const { media } = await api('/api/song-media?id=' + encodeURIComponent(s.gid));
+    if (!media || !Object.values(media).some(Boolean)) return;
+    s.media = media;
+    // si l'utilisateur n'a pas choisi de lecteur, on en propose un (Spotify, sinon YouTube)
+    if (!s.player) {
+      for (const u of [safeLink(media.spotify, 'spotify'), safeLink(media.youtube, 'youtube')]) {
+        const p = u && parsePlayer(u); if (p) { s.player = { ...p, url: u, auto: true }; break; }
+      }
+    }
+    save();
+    if (state.current === s.id) { renderPlayer(); renderListen(); }
+  } catch { /* pas bloquant */ }
 }
 
 let playerKey = '', playerEditing = false;
@@ -551,7 +591,7 @@ async function useText(raw, meta = {}) {
   await addSong({
     title: t || $('#mTitle').value.trim() || name || 'Sans titre',
     artist: ar || $('#mArtist').value.trim() || artist,
-    url: meta.url || '', lyrics
+    url: meta.url || '', lyrics, gid: meta.id || ''
   });
   return true;
 }

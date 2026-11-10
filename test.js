@@ -12,4 +12,16 @@ assert.equal(parseGenius('<html></html>'), null);
 assert.ok(isGeniusUrl('https://genius.com/Eden-derso-ra-o-tov-lyrics'));
 assert.ok(!isGeniusUrl('https://evil.com/?genius.com'));
 assert.ok(!isGeniusUrl('http://genius.com/x'));
+import { extractMedia } from './genius-media.js';
+const media = extractMedia({ media: [
+  { provider: 'youtube', type: 'video', url: 'http://www.youtube.com/watch?v=dQw4w9WgXcQ' },
+  { provider: 'spotify', type: 'audio', url: 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC' },
+  { provider: 'spotify', url: 'https://open.spotify.com/track/DOUBLON' },
+  { provider: 'soundcloud', url: 'javascript:alert(1)' },
+  { provider: 'inconnu', url: 'https://exemple.com' }
+] });
+assert.equal(media.spotify, 'https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC');
+assert.equal(media.youtube, 'http://www.youtube.com/watch?v=dQw4w9WgXcQ');
+assert.equal(media.soundcloud, '');
+assert.deepEqual(extractMedia(undefined), { spotify: '', youtube: '', soundcloud: '' });
 console.log('ok');
