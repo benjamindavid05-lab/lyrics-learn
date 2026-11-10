@@ -300,3 +300,8 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 .pspace{flex:1}
 .pfind{margin-left:8px}
 #pform form{margin-top:8px}
+
+/* aperçu Genius (embed officiel dans un cadre isolé) */
+.embedbox{border:1px solid var(--ink);margin:10px 0 8px;background:#fff}
+.embedbox iframe{display:block;width:100%;height:300px;border:0;background:#fff}
+#dManual{margin-top:18px}

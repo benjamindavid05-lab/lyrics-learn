@@ -1,4 +1,5 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
+import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RTL = new Set(['ar', 'he', 'fa', 'ur']);
@@ -668,9 +669,16 @@ async function runSearch(q, live) {
   }
 }
 
+function openFromEmbedCode(q) {
+  const emb = parseEmbedCode(q); if (!emb) return false;
+  renderHits([]); $('#q').value = ''; setStatus('');
+  openImport({ id: emb.id, title: emb.title, artist: emb.artist, url: emb.url || `https://genius.com/songs/${emb.id}`, thumb: '' });
+  return true;
+}
 $('#searchForm').onsubmit = (e) => {
   e.preventDefault();
   const q = $('#q').value.trim();
+  if (openFromEmbedCode(q)) return;
   if (GENIUS_LINK.test(q)) { renderHits([]); return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '', guessed: true }); }
   if (hitIdx >= 0 && hitList[hitIdx]) return openImport(hitList[hitIdx]);
   runSearch(q, false);
@@ -680,6 +688,7 @@ let liveTimer;
 $('#q').addEventListener('input', () => {
   clearTimeout(liveTimer);
   const q = $('#q').value.trim();
+  if (openFromEmbedCode(q)) return;
   if (q.length < 2 || GENIUS_LINK.test(q)) { searchSeq++; renderHits([]); if (q.length < 2) setStatus(''); return; }
   liveTimer = setTimeout(() => runSearch(q, true), 300);
 });
@@ -695,10 +704,9 @@ const dlg = $('#dlg');
 let watcher = null;
 function openImport(h) {
   if (songsDlg.open) songsDlg.close();
-  const label = [h.title, h.artist].filter(Boolean).join(' — ');
-  dlg.innerHTML = `<button class="x" id="dX" aria-label="${esc(t('common.close'))}">✕</button>
-    <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="${esc(t('imp.openOn'))}"><img src="genius-logo.svg" alt="Genius"></a></h2><div class="muted small">${esc(t('imp.sub'))}</div>
-    <ol>
+  const label = [h.title, h.artist].filter(Boolean).join(' — ') || 'Genius';
+  const hasEmbed = /^\d{1,12}$/.test(String(h.id || ''));
+  const steps = `<ol>
       <li><div><button class="primary" id="dOpen">${esc(t('imp.openGenius'))}</button>
         <div class="muted small" style="margin-top:4px">${esc(t('imp.openNote'))}</div></div></li>
       <li><div>${esc(t('imp.step2'))} <kbd>${MOD}</kbd> + <kbd>A</kbd> ${esc(t('imp.then'))} <kbd>${MOD}</kbd> + <kbd>C</kbd>
@@ -708,11 +716,20 @@ function openImport(h) {
       <li><div id="dState">${esc(t('imp.step3'))}
         <div style="margin-top:8px"><button class="secondary" id="dPaste">${esc(t('imp.paste'))}</button></div></div></li>
     </ol>`;
+  dlg.innerHTML = `<button class="x" id="dX" aria-label="${esc(t('common.close'))}">✕</button>
+    <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="${esc(t('imp.openOn'))}"><img src="genius-logo.svg" alt="Genius"></a></h2>
+    ${hasEmbed ? `<div class="muted small">${esc(t('imp.previewSub'))}</div>
+      <div class="embedbox"><iframe id="embedFrame" title="${esc(t('imp.previewSub'))}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe></div>
+      <div id="embedState" class="small">${esc(t('imp.previewLoading'))}</div>
+      <div class="acts"><button class="btn solid" id="dImport" type="button" disabled>${esc(t('imp.importThese'))}</button></div>` : `<div class="muted small">${esc(t('imp.sub'))}</div>`}
+    <details id="dManual" ${hasEmbed ? '' : 'open'}><summary>${esc(t('imp.orCopy'))}</summary>${steps}</details>`;
+
   const state$ = () => $('#dState');
-  let popup = null, done = false;
+  let popup = null, done = false, embedText = '', timer = null;
   const finish = async (raw) => {
     if (done) return; done = true;
-    state$().innerHTML = `<span class="ok">${esc(t('imp.found'))}</span>`;
+    const box = $('#embedState') || state$();
+    box.innerHTML = `<span class="ok">${esc(t('imp.found'))}</span>`;
     if (await useText(raw, h)) { stop(); dlg.close(); if (popup && !popup.closed) popup.close(); } else done = false;
   };
   const tryClipboard = async (auto) => {
@@ -724,7 +741,27 @@ function openImport(h) {
     } catch { if (!auto) state$().insertAdjacentHTML('beforeend', `<div class="status err">${esc(t('imp.denied'))}</div>`); }
   };
   const onFocus = () => setTimeout(() => tryClipboard(true), 250);
-  const stop = () => { window.removeEventListener('focus', onFocus); clearInterval(watcher); };
+
+  // aperçu Genius : le cadre isolé renvoie le texte affiché par l'embed officiel
+  const previewFail = () => { const e = $('#embedState'); if (e && !embedText) { e.textContent = t('imp.previewFail'); const d = $('#dManual'); if (d) d.open = true; } };
+  const onMsg = (ev) => {
+    const f = $('#embedFrame');
+    if (!f || ev.source !== f.contentWindow || !ev.data || ev.data.llEmbed !== true || String(ev.data.id) !== String(h.id)) return;
+    clearTimeout(timer);
+    const cleaned = cleanEmbedText(String(ev.data.text || '').slice(0, 60000));
+    if (cleaned.length < 60) return previewFail();
+    embedText = cleaned;
+    $('#embedState').textContent = t('imp.previewReady', { n: cleaned.split('\n').filter((x) => x.trim() && !/^\[.*\]$/.test(x.trim())).length });
+    $('#dImport').disabled = false;
+  };
+  const stop = () => { window.removeEventListener('focus', onFocus); window.removeEventListener('message', onMsg); clearInterval(watcher); clearTimeout(timer); };
+
+  if (hasEmbed) {
+    window.addEventListener('message', onMsg);
+    $('#embedFrame').srcdoc = embedSrcdoc(h.id);
+    $('#dImport').onclick = () => finish(embedText);
+    timer = setTimeout(previewFail, 12000);
+  }
   $('#dOpen').onclick = () => {
     popup = window.open(h.url, 'genius', 'width=980,height=820');
     if (!popup) state$().insertAdjacentHTML('afterbegin', `<div class="status err">${esc(t('imp.blockedPre'))}<a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(t('imp.blockedLink'))}</a>${esc(t('imp.blockedPost'))}</div>`);

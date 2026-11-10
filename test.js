@@ -53,4 +53,16 @@ globalThis.fetch = realFetch;
 assert.equal(found.deezer, 'https://www.deezer.com/track/3135556');
 assert.equal(found.apple, 'https://music.apple.com/us/album/otobussim/1558533900?i=1558534271');
 assert.equal(found.spotify, ''); assert.equal(found.youtube, '');
+import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './public/embed.js';
+// le code « Embed » tel que Genius le donne
+const snippet = `<div id='rg_embed_link_4494161' class='rg_embed_link' data-song-id='4494161'>Read <a href='https://genius.com/Makala-big-boy-lyrics'>“Big Boy” by Makala</a> on Genius</div> <script crossorigin src='//genius.com/songs/4494161/embed.js'></script>`;
+assert.deepEqual(parseEmbedCode(snippet), { id: '4494161', url: 'https://genius.com/Makala-big-boy-lyrics', title: 'Big Boy', artist: 'Makala' });
+assert.equal(parseEmbedCode('//genius.com/songs/123/embed.js').id, '123');
+assert.equal(parseEmbedCode('eden derso'), null);
+assert.equal(parseEmbedCode("<div id='rg_embed_link_12a'>"), null);
+assert.equal(parseEmbedCode("<div id='rg_embed_link_5'><a href='https://evil.example.com/x'>T by A</a>").url, '');
+assert.throws(() => embedSrcdoc('1"><script>alert(1)</script>'));
+assert.ok(embedSrcdoc('4494161').includes('https://genius.com/songs/4494161/embed.js'));
+assert.equal(cleanEmbedText('Big Boy Lyrics\n[Verse 1]\nligne un\nligne deux\n\n\n\n[Chorus]\nlà\nRead the full lyrics on Genius\nautre'), '[Verse 1]\nligne un\nligne deux\n\n[Chorus]\nlà');
+assert.equal(cleanEmbedText('sans balise\nvers 2'), 'sans balise\nvers 2');
 console.log('ok');
