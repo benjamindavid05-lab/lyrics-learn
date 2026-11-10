@@ -392,9 +392,16 @@ async function useText(raw, meta = {}) {
   if (!lyrics) { setStatus('Rien à importer : copiez d’abord les paroles.', true); return false; }
   const parts = title.split(/\s[–—-]\s/);
   const [artist, name] = parts.length > 1 ? [parts[0], parts.slice(1).join(' - ')] : ['', title];
+  let t = meta.title, ar = meta.artist;
+  if (meta.guessed && name) { // lien direct : le titre vient de l'URL, on préfère celui de la page
+    const flat = (x) => x.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const ns = flat(meta.title || ''), nt = flat(name);
+    if (nt && ns.endsWith(nt) && ns.length > nt.length) ar = ns.slice(0, ns.length - nt.length).trim().replace(/(^|\s)\p{L}/gu, (c) => c.toUpperCase());
+    t = name;
+  }
   await addSong({
-    title: meta.title || $('#mTitle').value.trim() || name || 'Sans titre',
-    artist: meta.artist || $('#mArtist').value.trim() || artist,
+    title: t || $('#mTitle').value.trim() || name || 'Sans titre',
+    artist: ar || $('#mArtist').value.trim() || artist,
     url: meta.url || '', lyrics
   });
   return true;
@@ -410,7 +417,7 @@ $('#searchForm').onsubmit = async (e) => {
   const q = $('#q').value.trim(); $('#hits').innerHTML = '';
   if (/^https?:\/\/(www\.)?genius\.com\//i.test(q)) {
     // lien direct : pas besoin de recherche
-    return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '' });
+    return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '', guessed: true });
   }
   setStatus('Recherche…');
   try {

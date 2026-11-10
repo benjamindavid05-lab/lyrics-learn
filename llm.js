@@ -9,24 +9,51 @@ export const hasLLM = () => !!process.env.GEMINI_API_KEY && Date.now() >= cooldo
 export const llmConfigured = () => !!process.env.GEMINI_API_KEY;
 export const llmModel = MODEL;
 
-async function generate(prompt, schema, thinking = true) {
-  const res = await fetch(`${BASE()}/v1beta/models/${MODEL()}:generateContent`, {
+// Modèles essayés dans l'ordre : le premier configuré, puis des alternatives (quotas séparés).
+const CHAIN = () => [...new Set([MODEL(), 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.5-flash-lite'])];
+let sticky = ''; // dernier modèle qui a fonctionné
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+async function callModel(model, prompt, schema, thinking) {
+  const res = await fetch(`${BASE()}/v1beta/models/${model}:generateContent`, {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
     body: JSON.stringify({
       contents: [{ parts: [{ text: prompt }] }],
       generationConfig: { responseMimeType: 'application/json', responseSchema: schema, temperature: 0.3, ...(thinking ? { thinkingConfig: { thinkingBudget: 0 } } : {}) }
     }),
-    signal: AbortSignal.timeout(45000)
+    signal: AbortSignal.timeout(40000)
   });
-  if (res.status === 429) { cooldownUntil = Date.now() + 60000; throw new Error('Quota Gemini atteint, repli sur Google Translate'); }
   // Certains modèles n'acceptent pas le réglage de réflexion : on réessaie sans.
-  if (res.status === 400 && thinking) return generate(prompt, schema, false);
-  if (res.status === 400 || res.status === 403) throw new Error(`Gemini a refusé la requête (${res.status}) : vérifiez GEMINI_API_KEY`);
-  if (!res.ok) throw new Error(`Gemini indisponible (${res.status})`);
-  const data = await res.json();
-  const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
-  try { return JSON.parse(text); } catch { throw new Error('Réponse Gemini illisible'); }
+  if (res.status === 400 && thinking) return callModel(model, prompt, schema, false);
+  return res;
+}
+
+async function generate(prompt, schema) {
+  const started = Date.now();
+  const order = sticky ? [sticky, ...CHAIN().filter((m) => m !== sticky)] : CHAIN();
+  const tried = [];
+  let lastStatus = 0, all429 = true;
+  for (const model of order) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (Date.now() - started > 60000) break;
+      let res;
+      try { res = await callModel(model, prompt, schema, true); } catch { lastStatus = 0; all429 = false; await sleep(500); continue; }
+      lastStatus = res.status;
+      if (res.ok) {
+        const data = await res.json();
+        const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
+        try { const out = JSON.parse(text); sticky = model; return out; } catch { all429 = false; break; } // réponse illisible : autre modèle
+      }
+      if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error(`Gemini a refusé la requête (${res.status}) : vérifiez GEMINI_API_KEY`);
+      if (res.status !== 429) all429 = false;
+      if (res.status === 429 || res.status === 404) break;   // quota ou modèle inconnu : modèle suivant
+      await sleep(700 * (attempt + 1));                       // 500/503… : on patiente un peu puis on réessaie
+    }
+    tried.push(model);
+  }
+  if (all429 && lastStatus === 429) cooldownUntil = Date.now() + 60000;
+  throw new Error(`Gemini indisponible (${lastStatus || 'réseau'}) après ${tried.join(', ')}`);
 }
 
 const S = 'STRING';
