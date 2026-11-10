@@ -293,5 +293,31 @@ $('#mGo').onclick = async () => {
   $('#mLyrics').value = '';
 };
 
+// ---------- import en un clic (bookmarklet exécuté sur la page Genius) ----------
+function bookmarklet() {
+  const code = `(()=>{const c=[...document.querySelectorAll('[data-lyrics-container=true]')];
+if(!c.length){alert('Paroles introuvables : ouvrez la page d\\u2019une chanson Genius.');return}
+const l=c.map(d=>{const k=d.cloneNode(true);k.querySelectorAll('[data-exclude-from-selection=true]').forEach(e=>e.remove());k.querySelectorAll('br').forEach(b=>b.replaceWith('\\n'));return k.textContent}).join('\\n');
+const m=document.querySelector('meta[property="og:title"]');
+let t=(m?m.content:document.title).replace(/\\s*(Lyrics\\s*)?\\|\\s*Genius.*$/i,'').replace(/\\s+Lyrics$/i,''),a='';
+const p=t.split(/\\s[\u2013\u2014-]\\s/);if(p.length>1){a=p[0];t=p.slice(1).join(' - ')}
+const u=${JSON.stringify(location.origin)}+'/#import='+encodeURIComponent(JSON.stringify({title:t,artist:a,url:location.href,lyrics:l}));
+if(!window.open(u,'_blank'))location.href=u})();`;
+  return 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
+}
+$('#bm').href = bookmarklet();
+$('#bm').onclick = (e) => { e.preventDefault(); alert('Ne cliquez pas ici : faites glisser ce bouton vers votre barre de favoris.'); };
+
+async function importFromHash() {
+  if (!location.hash.startsWith('#import=')) return;
+  try {
+    const d = JSON.parse(decodeURIComponent(location.hash.slice(8)));
+    history.replaceState(null, '', location.pathname);
+    const lyrics = String(d.lyrics || '').replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
+    if (lyrics) await addSong({ title: String(d.title || 'Sans titre'), artist: String(d.artist || ''), url: String(d.url || ''), lyrics });
+  } catch { setStatus('Import par le bouton impossible.', true); }
+}
+
 await initLanguages();
 render();
+await importFromHash();

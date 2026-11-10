@@ -69,3 +69,4 @@ details .secondary{margin-top:8px}
 .lib .e{font-weight:700;font-size:1.1rem;min-width:30%;cursor:help;border-bottom:1px dotted var(--accent);flex:0 1 auto}
 .lib .m{flex:1}.lib .s{color:var(--muted);font-size:.82rem}
 @media(max-width:1000px){.layout,.layout:has(#goalSide[hidden]){grid-template-columns:1fr}.side{position:static}}
+.steps{padding-left:18px;margin:0;color:var(--muted)}.steps li{margin-bottom:6px}.bm{display:inline-block;margin-top:4px;background:var(--accent);color:#fff;text-decoration:none;border-radius:8px;padding:6px 10px;cursor:grab}
