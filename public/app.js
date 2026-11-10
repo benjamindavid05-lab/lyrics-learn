@@ -37,25 +37,39 @@ async function addSong({ title, artist, url, lyrics }) {
   state.songs[id] = { id, title, artist, url: url || '', lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
   state.current = id;
   save();
-  await translateSong();
+  translateSong(); // en arrière-plan : la chanson s'affiche tout de suite
 }
 
 async function translateSong() {
   const s = song(); if (!s) return;
-  render();
   const idx = s.lines.map((l, i) => (lineKind(l.text) === 'line' ? i : -1)).filter((i) => i >= 0);
-  setStatus('Traduction en cours…');
-  try {
-    const { results, engine, source, warning } = await api('/api/translate-lines', { lines: idx.map((i) => s.lines[i].text), target: state.target, source: s.source });
-    results.forEach((r, k) => { const l = s.lines[idx[k]]; l.tr = r.text; l.rm = r.translit; });
-    if (source && s.source === 'auto') s.source = source;
-    s.engine = engine; s.warn = warning || '';
-    s.target = state.target;
-    // retraduire les mots de l'objectif
-    await translateGoal();
-    setStatus(results.some((r) => r.error) ? 'Certaines lignes n’ont pas pu être traduites.' : '', results.some((r) => r.error));
-  } catch (e) { setStatus(e.message, true); }
-  save(); render();
+  const all = idx.map((i) => s.lines[i].text);
+  const CHUNK = 30, chunks = [];
+  for (let i = 0; i < idx.length; i += CHUNK) chunks.push(idx.slice(i, i + CHUNK));
+  const myTarget = state.target;
+  s.translating = true; s.done = 0; s.total = idx.length; s.engine = ''; s.warn = '';
+  const engines = new Set();
+  render();
+  let next = 0;
+  const worker = async () => {
+    while (next < chunks.length) {
+      const part = chunks[next++];
+      try {
+        const r = await api('/api/translate-lines', { lines: part.map((i) => s.lines[i].text), context: all, target: myTarget, source: s.source });
+        if (state.target !== myTarget) return;
+        r.results.forEach((x, k) => { const l = s.lines[part[k]]; l.tr = x.text; l.rm = x.translit; });
+        if (r.source && s.source === 'auto') s.source = r.source;
+        engines.add(r.engine); if (r.warning) s.warn = r.warning;
+      } catch (e) { s.warn = e.message; }
+      s.done += part.length;
+      s.engine = engines.size > 1 ? 'mixed' : [...engines][0] || '';
+      if (state.current === s.id) render();
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, worker));
+  s.target = myTarget; s.translating = false;
+  save(); if (state.current === s.id) render();
+  try { await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
 }
 
 function ctxFor(word) {
@@ -66,8 +80,16 @@ function ctxFor(word) {
 
 async function translateGoal() {
   const s = song(); if (!s || !s.goal.words.length) return;
-  const { results } = await api('/api/translate-words', { items: s.goal.words.map((w) => ({ text: w.word, context: ctxFor(w.word) })), target: state.target, source: s.source });
-  results.forEach((r, i) => { s.goal.words[i].tr = r.text; s.goal.words[i].note = r.note || ''; });
+  const items = s.goal.words.map((w) => ({ text: w.word, context: ctxFor(w.word) }));
+  const body = { items, target: state.target, source: s.source };
+  const apply = (results, overwrite) => results.forEach((r, i) => {
+    const w = s.goal.words[i]; if (!w || w.word !== items[i].text) return;
+    if (overwrite || !w.tr) { w.tr = r.text; w.note = r.note || w.note || ''; }
+  });
+  const quick = api('/api/translate-words', { ...body, fast: true })
+    .then(({ results }) => { apply(results, false); if (state.current === s.id) renderGoal(); }).catch(() => {});
+  const { results } = await api('/api/translate-words', body);
+  await quick; apply(results, true);
 }
 
 // ---------- rendu des paroles ----------
@@ -92,7 +114,7 @@ function render() {
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
   if (!s) return;
   $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
-  $('#sEngine').textContent = s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
+  $('#sEngine').textContent = s.translating ? `⏳ Traduction en cours… ${s.done || 0}/${s.total || 0} lignes` : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
   $('#lyrics').className = 'lyrics' + ($('#showTr').checked ? '' : ' hide-tr');
   $('#lyrics').innerHTML = s.lines.map((l, i) => {
@@ -128,6 +150,7 @@ function renderSongList() {
 // ---------- popover mot / expression ----------
 const pop = $('#pop');
 let popCtx = null;
+const wordCache = new Map();
 function closePop() { pop.hidden = true; popCtx = null; }
 
 async function openPop(text, lineIdx, rect) {
@@ -141,7 +164,7 @@ async function openPop(text, lineIdx, rect) {
     const inGoal = s.goal.words.some((g) => norm(g.word) === norm(text));
     const single = !/\s/.test(text.trim());
     pop.innerHTML = `<div class="t" dir="auto">${esc(text)}</div>
-      <div class="r">${popCtx.tr ? esc(popCtx.tr) : 'Traduction…'}${popCtx.rm ? ` <small class="muted">· ${esc(popCtx.rm)}</small>` : ''}</div>
+      <div class="r">${popCtx.tr ? esc(popCtx.tr) : 'Traduction…'}${popCtx.rm ? ` <small class="muted">· ${esc(popCtx.rm)}</small>` : ''}${popCtx.refining ? ' <small class="muted">✨ affinage…</small>' : ''}</div>
       ${popCtx.note ? `<div class="small">💡 ${esc(popCtx.note)}</div>` : ''}
       <div class="ctx" dir="auto">« ${esc(line.text)} »</div>
       <div class="row"><button class="primary" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? '✓ Enregistré' : '💾 Enregistrer'}</button>
@@ -149,11 +172,23 @@ async function openPop(text, lineIdx, rect) {
       <button class="secondary" id="pClose">Fermer</button></div>`;
   };
   draw();
-  try {
-    const r = await api('/api/translate', { text, target: state.target, source: s.source, context: line.text });
+  const key = `${state.target}|${text}|${lineIdx}`;
+  const apply = (r, refining) => {
     if (popCtx?.text !== text) return;
-    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; draw();
-  } catch (e) { popCtx.tr = '⚠ ' + e.message; draw(); }
+    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; popCtx.refining = refining; draw();
+  };
+  if (wordCache.has(key)) return apply(wordCache.get(key), false);
+  const base = { text, target: state.target, source: s.source };
+  let smartDone = false;
+  // 1) réponse immédiate (Google), 2) version contextuelle (Gemini) qui la remplace
+  api('/api/translate', { ...base, fast: true }).then((r) => { if (!smartDone) apply(r, true); }).catch(() => {});
+  try {
+    const r = await api('/api/translate', { ...base, context: line.text });
+    smartDone = true; wordCache.set(key, r); apply(r, false);
+  } catch (e) {
+    smartDone = true;
+    if (popCtx?.text === text) { popCtx.refining = false; if (!popCtx.tr) popCtx.tr = '⚠ ' + e.message; draw(); }
+  }
 }
 
 pop.addEventListener('click', async (e) => {

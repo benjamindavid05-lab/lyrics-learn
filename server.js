@@ -50,11 +50,12 @@ async function api(req, res, url) {
       const b = await readBody(req);
       if (url.pathname === '/api/translate-lines') {
         const lines = Array.isArray(b.lines) ? b.lines.slice(0, 600).map(String) : [];
+        const ctx = Array.isArray(b.context) ? b.context.slice(0, 600).map(String) : [];
         if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
         let warning = '';
         if (hasLLM()) {
           try {
-            const r = await translateLyrics(lines, LANGUAGES[b.target], b.source || 'auto');
+            const r = await translateLyrics(lines, LANGUAGES[b.target], b.source || 'auto', ctx);
             return json(res, 200, { ...r, engine: 'gemini' });
           } catch (e) { warning = e.message; }
         }
@@ -64,14 +65,14 @@ async function api(req, res, url) {
       if (url.pathname === '/api/translate-words') {
         const items = Array.isArray(b.items) ? b.items.slice(0, 60).map((x) => ({ text: String(x.text), context: String(x.context || '') })) : [];
         if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
-        if (hasLLM()) {
+        if (b.fast !== true && hasLLM()) {
           try { return json(res, 200, { results: await translateItems(items, LANGUAGES[b.target], b.source || 'auto'), engine: 'gemini' }); } catch { /* repli */ }
         }
         return json(res, 200, { results: await translateMany(items.map((x) => x.text), b.target, b.source || 'auto'), engine: 'google' });
       }
       if (url.pathname === '/api/translate') {
         const text = b.text || '';
-        if (hasLLM() && text.trim()) {
+        if (b.fast !== true && hasLLM() && text.trim()) {
           try {
             const [r] = await translateItems([{ text, context: b.context || '' }], LANGUAGES[b.target], b.source || 'auto');
             return json(res, 200, { ...r, engine: 'gemini' });
