@@ -38,10 +38,10 @@ function lineKind(t) {
   return /^\[.*\]$/.test(t.trim()) ? 'sec' : 'line';
 }
 
-async function addSong({ title, artist, url, lyrics, gid, sample }) {
+async function addSong({ title, artist, url, lyrics, gid, sample, example }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
-  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
+  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, example: !!example, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
   state.current = id;
   save();
   $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
@@ -271,10 +271,20 @@ $('#start').addEventListener('click', (e) => {
 });
 
 // ---------- chanson d'exemple : essayer sans rien chercher ----------
-function tryExample() {
+const EXAMPLE_QUERY = 'Michael Jackson Thriller';
+async function tryExample() {
   if (songsDlg.open) songsDlg.close();
-  const existing = Object.values(state.songs).find((x) => x.sample);
+  const existing = Object.values(state.songs).find((x) => x.example || x.sample);
   if (existing) { state.current = existing.id; save(); render(); showTab('song'); return; }
+  // « Thriller » : les paroles viennent de Genius (aperçu officiel) dans le navigateur du visiteur, jamais de notre code
+  try {
+    const r = await api('/api/search?q=' + encodeURIComponent(EXAMPLE_QUERY));
+    const hits = r.hits || [];
+    const hit = hits.find((h) => /^thriller$/i.test(h.title.trim()) && /michael jackson/i.test(h.artist))
+      || hits.find((h) => /thriller/i.test(h.title) && /michael jackson/i.test(h.artist));
+    if (hit) return openImport({ ...hit, example: true });
+  } catch { /* on retombe sur l'exemple intégré */ }
+  // repli sans aucune dépendance : chanson d'exemple écrite pour l'application
   addSong({ title: SAMPLE_SONG.title, artist: SAMPLE_SONG.artist, url: '', lyrics: SAMPLE_SONG.lyrics, sample: true });
 }
 $('#homeTry').onclick = tryExample;
@@ -719,7 +729,7 @@ async function useText(raw, meta = {}) {
   await addSong({
     title: t || $('#mTitle').value.trim() || name || t('common.untitled'),
     artist: ar || $('#mArtist').value.trim() || artist,
-    url: meta.url || '', lyrics, gid: meta.id || ''
+    url: meta.url || '', lyrics, gid: meta.id || '', example: !!meta.example
   });
   return true;
 }
