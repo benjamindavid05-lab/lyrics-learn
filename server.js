@@ -8,6 +8,7 @@ import { translate, translateMany, LANGUAGES } from './translate.js';
 import { deeplOn, deeplSupports, deeplTranslate, deeplCheck } from './deepl.js';
 import { extractMedia } from './genius-media.js';
 import { findTracks, spotifyCheck } from './find-track.js';
+import { findSynced } from './synced.js';
 import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems, suggestVocab, diagnose } from './llm.js';
 
 try { // mini chargeur .env (GENIUS_TOKEN=...)
@@ -43,7 +44,7 @@ const HOSTED = process.env.RATE_LIMIT !== 'off' && !!(process.env.RENDER || proc
 const LIM = { hour: +process.env.LIMIT_PER_HOUR || 250, day: +process.env.LIMIT_PER_DAY || 1000, global: +process.env.LIMIT_GLOBAL_PER_DAY || 8000 };
 const buckets = new Map();
 let globalCount = { day: '', n: 0 };
-const COUNTED = new Set(['/api/find-track', '/api/song-media', '/api/translate-lines', '/api/translate-words', '/api/translate', '/api/suggest-words', '/api/search', '/api/lyrics']);
+const COUNTED = new Set(['/api/find-track', '/api/synced', '/api/song-media', '/api/translate-lines', '/api/translate-words', '/api/translate', '/api/suggest-words', '/api/search', '/api/lyrics']);
 const clientIp = (req) => ((process.env.RENDER || process.env.TRUST_PROXY) ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '') || req.socket.remoteAddress || 'inconnu';
 function rateLimit(req) {
   if (!HOSTED) return null;
@@ -77,6 +78,13 @@ async function api(req, res, url) {
       if (trackCache.size > 500) trackCache.clear();
       trackCache.set(ck, { at: Date.now(), tracks, any: Object.values(tracks).some(Boolean) });
       return json(res, 200, { tracks });
+    }
+    if (url.pathname === '/api/synced') {
+      // Horodatage des vers pour suivre la musique (jamais bloquant : sans résultat, la lecture reste normale)
+      const title = (url.searchParams.get('title') || '').trim().slice(0, 160), artist = (url.searchParams.get('artist') || '').trim().slice(0, 160);
+      if (!title) return json(res, 200, { lines: [] });
+      try { return json(res, 200, await findSynced({ title, artist, duration: Number(url.searchParams.get('d')) || 0 })); }
+      catch { return json(res, 200, { lines: [] }); }
     }
     if (url.pathname === '/api/song-media') {
       // Liens d'écoute connus de Genius pour une chanson (jamais bloquant : sans lien, l'app propose des recherches)

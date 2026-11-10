@@ -1,6 +1,7 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
+import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
 import { howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
@@ -200,8 +201,10 @@ function render() {
     const tr = l.tr ? `<div class="tr" dir="${dir}">${esc(l.tr)}${l.rm ? ` <small>· ${esc(l.rm)}</small>` : ''}</div>` : '';
     return `<div class="ln${activeLine === i ? ' active' : ''}" data-i="${i}"><div class="orig" dir="auto">${wordsHtml(l.text, i)}</div>${tr}</div>`;
   }).join('');
+  syncEl = null; syncIdx = -1;
   renderPlayer();
   renderGoal();
+  if (s.sync && s.sync.times && (syncPlaying || syncPos)) syncFrame();
 }
 
 function renderGoal() {
@@ -408,6 +411,58 @@ async function loadMedia(s) {
 }
 const ensureMedia = (s) => { if (s && !s.mediaLoaded && !s.finding) loadMedia(s); };
 
+// ---------- surlignage synchronisé avec la musique ----------
+let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null;
+let follow = true; try { follow = localStorage.getItem('ll_follow') !== '0'; } catch {}
+function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; clearPlaying(); }
+function clearPlaying() { if (syncEl) { syncEl.classList.remove('playing'); syncEl.style.removeProperty('--p'); } syncEl = null; syncIdx = -1; }
+function onTick(pos, playing) { syncPos = pos; syncAt = performance.now(); syncPlaying = playing; if (playing && !syncRaf) syncRaf = requestAnimationFrame(syncFrame); }
+function syncFrame() {
+  syncRaf = 0;
+  const s = song(); if (!s || !s.sync || !s.sync.times) return;
+  const pos = syncPos + (syncPlaying ? (performance.now() - syncAt) / 1000 : 0) + (s.syncOff || 0);
+  const loc = locate(s.sync.times, pos);
+  if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
+    clearPlaying(); syncIdx = loc.i;
+    syncEl = loc.i >= 0 ? document.querySelector(`#lyrics .ln[data-i="${loc.i}"]`) : null;
+    if (syncEl) { syncEl.classList.add('playing'); if (follow && syncPlaying) syncEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+  }
+  if (syncEl) syncEl.style.setProperty('--p', `${Math.round(loc.p * 100)}%`);
+  if (syncPlaying) syncRaf = requestAnimationFrame(syncFrame);
+}
+async function ensureSync(s) {
+  if (!s || s.sync || s.syncing || !s.title) return;
+  s.syncing = true;
+  try {
+    const r = await api(`/api/synced?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}`);
+    const texts = s.lines.map((l) => (lineKind(l.text) === 'line' ? l.text : null));
+    const n = texts.filter((x) => x != null).length;
+    const al = r.lines && r.lines.length ? alignLines(texts, r.lines) : null;
+    s.sync = al && al.matched >= Math.max(3, n * 0.3) ? { times: al.times } : { none: true };
+  } catch { s.sync = { none: true }; }
+  finally { s.syncing = false; save(); if (state.current === s.id) renderSyncBar(s); }
+}
+function renderSyncBar(s, p) {
+  const bar = $('#syncBar'); if (!bar) return;
+  if (!p) p = s.playerPref && s.players[s.playerPref];
+  if (!p) { bar.hidden = true; return; }
+  let html = '';
+  if (!canSync(p.provider)) html = `<span>${esc(t('sync.unsupported'))}</span>`;
+  else if (!s.sync) html = `<span>${esc(t('sync.loading'))}</span>`;
+  else if (s.sync.none) html = `<span>${esc(t('sync.none'))}</span>`;
+  else html = `<span class="syncon"><b>♪</b> ${esc(t('sync.ready'))}</span>
+    <span class="syncoff"><button type="button" class="link" data-off="-0.5" aria-label="${esc(t('sync.earlier'))}">−0.5 s</button><em>${(s.syncOff || 0) > 0 ? '+' : ''}${(s.syncOff || 0).toFixed(1)} s</em><button type="button" class="link" data-off="0.5" aria-label="${esc(t('sync.later'))}">+0.5 s</button></span>`;
+  bar.innerHTML = html; bar.hidden = false;
+  $('#followWrap').hidden = !(s.sync && s.sync.times);
+  $('#follow').checked = follow;
+}
+$('#syncBar').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-off]'); const s = song(); if (!b || !s) return;
+  s.syncOff = Math.round(((s.syncOff || 0) + Number(b.dataset.off)) * 10) / 10; save(); renderSyncBar(s);
+  if (syncPlaying) return; syncFrame();
+});
+$('#follow').onchange = () => { follow = $('#follow').checked; try { localStorage.setItem('ll_follow', follow ? '1' : '0'); } catch {} };
+
 let frameKey = '', formKey = '', playerEditing = false;
 const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);
 function renderPlayer() {
@@ -426,12 +481,24 @@ function renderPlayer() {
   if (fk !== frameKey) {
     frameKey = fk;
     const h = p && frameHeight(p);
+    stopSync();
+    const spTrack = p && p.provider === 'Spotify' && /\/embed\/track\/([A-Za-z0-9]+)/.exec(p.src);
+    const src = p && p.kind === 'yt' ? p.src + (p.src.includes('?') ? '&' : '?') + 'enablejsapi=1&playsinline=1' : p && p.src;
+    const iframeHtml = (u) => `<iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(u)}" ${h ? `height="${h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>`;
     $('#pframe').innerHTML = p
-      ? `<iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${h ? `height="${h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
-          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>
-         <p class="pnote">${esc(t('player.note'))}</p>`
+      ? `${spTrack ? '<div id="spHost"></div>' : iframeHtml(src)}<p class="pnote">${esc(t('player.note'))}</p>`
       : (s.finding ? '' : `<p class="pnote">${esc(t('player.none'))}</p>`);
+    if (p && canSync(p.provider)) {
+      const ok = (stop) => { if (frameKey === fk) syncStop = stop; else stop(); };
+      if (spTrack) {
+        attachSpotify($('#spHost'), `spotify:track:${spTrack[1]}`, onTick).then(ok).catch(() => {
+          const host = $('#spHost'); if (host && frameKey === fk) host.outerHTML = iframeHtml(p.src);
+        });
+      } else attachPlayer(p.provider, $('#pframe iframe'), onTick).then(ok).catch(() => {});
+    }
   }
+  ensureSync(s); renderSyncBar(s, p);
   // formulaire « coller un lien »
   const fm = playerEditing ? 'on' : 'off';
   if (fm !== formKey) {

@@ -73,4 +73,17 @@ assert.equal(guessScript('안녕'), 'ko'); assert.equal(guessScript('你好'), '
 assert.equal(flagOf('he'), '🇮🇱'); assert.equal(flagOf('iw'), '🇮🇱'); assert.equal(flagOf('es'), '🇪🇸'); assert.equal(flagOf('fr'), '🇫🇷'); assert.equal(flagOf('ca'), '🌐'); assert.equal(flagOf(''), '🌐');
 assert.equal(langName('he', 'en'), 'Hebrew'); assert.equal(langName('he', 'fr'), 'Hébreu'); assert.equal(langName('es', 'fr'), 'Espagnol');
 assert.equal(langName('', 'en'), 'Unknown language'); assert.equal(langName('', 'fr'), 'Langue inconnue');
+
+// synchronisation avec la musique
+import { alignLines, locate } from './public/sync.js';
+import { parseLrc } from './synced.js';
+const lrc = parseLrc('[00:08.50] In diesem Haus, wo ich wohn\'\n[00:11.22] Hier ist alles so gewohnt, so\n[00:14.49] Zum Kotzen vertraut\n[00:20.39] Ich zieh Runden durch meinen Teich\n[01:02.00] (Instrumental)');
+assert.equal(lrc.length, 5); assert.equal(lrc[0].t, 8.5); assert.equal(lrc[4].t, 62);
+const g = ['[Strophe 1]', "In diesem Haus, wo ich wohn'", 'Hier ist alles so gewohnt', 'Zum Kotzen vertraut', 'Mann, jeder Tag ist so gleich', 'Ich zieh Runden durch mein Teich'];
+const al = alignLines(g.map((x, i) => (i === 0 ? null : x)), lrc);
+assert.equal(al.times[0], null); assert.equal(al.times[1], 8.5); assert.equal(al.times[2], 11.22); assert.equal(al.times[3], 14.49); assert.equal(al.times[5], 20.39);
+assert.ok(al.times[4] > 14.49 && al.times[4] < 20.39, 'vers non reconnu : placé entre ses voisins');
+assert.equal(locate(al.times, 5).i, -1); assert.equal(locate(al.times, 12).i, 2);
+const loc = locate(al.times, 12.86); assert.ok(loc.p > 0.4 && loc.p < 0.6);
+assert.equal(alignLines(['totally different words here'], lrc).matched, 0);
 console.log('ok');
