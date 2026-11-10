@@ -36,6 +36,15 @@ async function readBody(req) {
 async function api(req, res, url) {
   try {
     if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel() });
+    if (url.pathname === '/api/genius-check') {
+      const token = process.env.GENIUS_TOKEN;
+      if (!token) return json(res, 200, { configured: false });
+      try {
+        const r = await fetch('https://api.genius.com/search?q=test', { headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
+        return json(res, 200, { configured: true, ok: r.ok, status: r.status, longueurJeton: token.length,
+          aide: r.ok ? 'Le jeton fonctionne.' : r.status === 401 ? 'Jeton refusé : générez un « Client Access Token » sur genius.com/api-clients (pas le Client ID ni le Client Secret).' : 'Genius ne répond pas normalement.' });
+      } catch (e) { return json(res, 200, { configured: true, ok: false, error: e.message }); }
+    }
     if (url.pathname === '/api/deepl-check') return json(res, 200, await deeplCheck());
     if (url.pathname === '/api/gemini-check') return json(res, 200, await diagnose());
     if (url.pathname === '/api/languages') return json(res, 200, LANGUAGES);
@@ -45,7 +54,7 @@ async function api(req, res, url) {
       const r = await fetch('https://api.genius.com/search?per_page=8&q=' + encodeURIComponent(url.searchParams.get('q') || ''), {
         headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(10000)
       });
-      if (!r.ok) throw new Error(r.status === 401 ? 'Jeton Genius invalide' : `Recherche Genius indisponible (${r.status})`);
+      if (!r.ok) throw new Error(r.status === 401 ? 'Jeton Genius refusé : il faut le « Client Access Token » (voir /api/genius-check).' : `Recherche Genius indisponible (${r.status})`);
       const data = await r.json();
       const hits = (data.response?.hits || []).filter((h) => h.type === 'song').map(({ result: x }) => ({
         title: x.title, artist: x.primary_artist?.name || '', url: x.url, thumb: x.song_art_image_thumbnail_url || ''

@@ -575,7 +575,7 @@ $('#searchForm').onsubmit = async (e) => {
     setStatus(r.hits.length ? '' : 'Aucun résultat.', !r.hits.length);
     $('#hits').innerHTML = r.hits.map((h, i) => `<li data-i="${i}"><img src="${esc(h.thumb)}" alt=""><span><b dir="auto">${esc(h.title)}</b><small>${esc(h.artist)}</small></span></li>`).join('');
     $('#hits').onclick = (ev) => { const li = ev.target.closest('li'); if (li) openImport(r.hits[Number(li.dataset.i)]); };
-  } catch (err) { setStatus(err.message, true); }
+  } catch (err) { setStatus(err.message + ' En attendant, vous pouvez coller directement un lien Genius dans ce champ.', true); }
 };
 
 const dlg = $('#dlg');
