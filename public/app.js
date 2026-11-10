@@ -79,7 +79,7 @@ async function translateSong() {
   };
   const fastDone = run(true);
   await run(false);
-  s.engine = engines.has('gemini') ? (engines.has('google') ? 'mixed' : 'gemini') : 'google';
+  s.engine = engines.has('gemini') ? (engines.size > 1 ? 'mixed' : 'gemini') : engines.has('deepl') ? (engines.has('google') ? 'mixed' : 'deepl') : 'google';
   if (geminiOn && state.target === myTarget) prefetchWords(s, myTarget); // sans attendre la fin du lot rapide
   await fastDone;
   s.target = myTarget; s.translating = false;
@@ -162,7 +162,7 @@ function render() {
   if (!s) { $('#addCard').open = true; return; }
   $('#tip1').hidden = tipSeen;
   $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
-  $('#sEngine').textContent = s.translating ? '' : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
+  $('#sEngine').textContent = s.translating ? '' : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'deepl' ? 'Traduit avec DeepL (ligne par ligne)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
   $('#lyrics').className = 'lyrics' + ($('#showTr').checked ? '' : ' hide-tr');
   $('#lyrics').innerHTML = s.lines.map((l, i) => {
@@ -517,9 +517,9 @@ $('#mGo').onclick = async () => {
 try {
   const st = await api('/api/status');
   geminiOn = !!st.gemini;
-  $('#engine').textContent = st.gemini ? '✨ Gemini' : 'Google Translate';
-  $('#engine').classList.toggle('on', !!st.gemini);
-  $('#engine').title = st.gemini ? 'Traduction contextuelle par Gemini' : 'Traduction mot à mot. Pour une meilleure qualité, ajoutez GEMINI_API_KEY dans le fichier .env';
+  $('#engine').textContent = [st.gemini && '✨ Gemini', st.deepl && 'DeepL', !st.gemini && !st.deepl && 'Google Translate'].filter(Boolean).join(' + ');
+  $('#engine').classList.toggle('on', !!(st.gemini || st.deepl));
+  $('#engine').title = st.gemini ? 'Traduction contextuelle par Gemini' : 'Traduction de base. Pour mieux, ajoutez GEMINI_API_KEY ou DEEPL_API_KEY dans le fichier .env';
 } catch {}
 await initLanguages();
 render();

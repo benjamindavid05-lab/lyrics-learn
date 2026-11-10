@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchGenius } from './genius.js';
 import { translate, translateMany, LANGUAGES } from './translate.js';
+import { deeplOn, deeplSupports, deeplTranslate, deeplCheck } from './deepl.js';
 import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems, suggestVocab, diagnose } from './llm.js';
 
 try { // mini chargeur .env (GENIUS_TOKEN=...)
@@ -28,7 +29,8 @@ async function readBody(req) {
 
 async function api(req, res, url) {
   try {
-    if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), model: llmModel() });
+    if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel() });
+    if (url.pathname === '/api/deepl-check') return json(res, 200, await deeplCheck());
     if (url.pathname === '/api/gemini-check') return json(res, 200, await diagnose());
     if (url.pathname === '/api/languages') return json(res, 200, LANGUAGES);
     if (url.pathname === '/api/search') {
@@ -60,6 +62,12 @@ async function api(req, res, url) {
             return json(res, 200, { ...r, engine: 'gemini' });
           } catch (e) { warning = e.message; }
         }
+        if (deeplSupports(b.target)) {
+          try {
+            const r = await deeplTranslate(lines, b.target, b.source || 'auto');
+            return json(res, 200, { results: r.map((x) => ({ text: x.text, translit: '', source: x.source })), source: r[0]?.source || '', engine: 'deepl', warning });
+          } catch (e) { warning = warning || e.message; }
+        }
         const results = await translateMany(lines, b.target, b.source || 'auto');
         return json(res, 200, { results, source: results.find((r) => r.source)?.source || '', engine: 'google', warning });
       }
@@ -78,6 +86,9 @@ async function api(req, res, url) {
           try { return json(res, 200, { results: await translateItems(items, LANGUAGES[b.target], b.source || 'auto'), engine: 'gemini' }); } catch { /* repli */ }
         }
         if (b.llmOnly) throw new Error('Gemini indisponible');
+        if (deeplSupports(b.target)) {
+          try { const r = await deeplTranslate(items.map((x) => x.text), b.target, b.source || 'auto'); return json(res, 200, { results: r.map((x) => ({ text: x.text, translit: '', note: '' })), engine: 'deepl' }); } catch { /* repli */ }
+        }
         return json(res, 200, { results: await translateMany(items.map((x) => x.text), b.target, b.source || 'auto'), engine: 'google' });
       }
       if (url.pathname === '/api/translate') {
@@ -87,6 +98,9 @@ async function api(req, res, url) {
             const [r] = await translateItems([{ text, context: b.context || '' }], LANGUAGES[b.target], b.source || 'auto');
             return json(res, 200, { ...r, engine: 'gemini' });
           } catch { /* repli */ }
+        }
+        if (text.trim() && deeplSupports(b.target)) {
+          try { const [r] = await deeplTranslate([text], b.target, b.source || 'auto', b.context || ''); return json(res, 200, { text: r.text, translit: '', note: '', source: r.source, engine: 'deepl' }); } catch { /* repli */ }
         }
         return json(res, 200, { ...(await translate(text, b.target, b.source || 'auto')), engine: 'google' });
       }
