@@ -2,7 +2,7 @@ import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
-import { SAMPLE_SONG, howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
+import { howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RTL = new Set(['ar', 'he', 'fa', 'ur']);
@@ -266,7 +266,7 @@ function renderStart() {
   const cur = done.findIndex((d) => !d);
   const items = [1, 2, 3].map((k, i) => {
     const cta = i !== cur ? '' : i === 0
-      ? `<div class="start-cta"><button class="btn solid" id="startAdd" type="button">${esc(t('home.add'))}</button><button class="link" id="startTry" type="button">${esc(t('start.example'))}</button></div>`
+      ? `<div class="start-cta"><button class="btn solid" id="startAdd" type="button">${esc(t('home.cta'))}</button></div>`
       : `<div class="start-cta"><button class="btn solid" id="startOpen" type="button">${esc(t('start.open'))}</button></div>`;
     return `<li class="${done[i] ? 'done' : i === cur ? 'cur' : ''}"><span class="sn">${done[i] ? '✓' : k}</span><div><h3>${esc(t(`start.s${k}.t`))}</h3><p>${esc(t(`start.s${k}.d`))}</p>${cta}</div></li>`;
   }).join('');
@@ -277,31 +277,10 @@ function renderStart() {
 $('#start').addEventListener('click', (e) => {
   const id = e.target.closest('button')?.id;
   if (id === 'startAdd') songsDlg.showModal();
-  if (id === 'startTry') tryExample();
   if (id === 'startOpen') { const s = song() || Object.values(state.songs).sort((x, y) => y.added - x.added)[0]; if (s) { state.current = s.id; save(); render(); showTab('song'); } }
   if (id === 'startHide') { startHidden = true; try { localStorage.setItem('ll_start_hide', '1'); } catch {} renderStart(); }
 });
 
-// ---------- chanson d'exemple : essayer sans rien chercher ----------
-const EXAMPLE_QUERY = 'Michael Jackson Thriller';
-async function tryExample() {
-  if (songsDlg.open) songsDlg.close();
-  const existing = Object.values(state.songs).find((x) => x.example || x.sample);
-  if (existing) { state.current = existing.id; save(); render(); showTab('song'); return; }
-  // « Thriller » : les paroles viennent de Genius (aperçu officiel) dans le navigateur du visiteur, jamais de notre code
-  try {
-    const r = await api('/api/search?q=' + encodeURIComponent(EXAMPLE_QUERY));
-    const hits = r.hits || [];
-    const hit = hits.find((h) => /^thriller$/i.test(h.title.trim()) && /michael jackson/i.test(h.artist))
-      || hits.find((h) => /thriller/i.test(h.title) && /michael jackson/i.test(h.artist));
-    if (hit) return openImport({ ...hit, example: true });
-  } catch { /* on retombe sur l'exemple intégré */ }
-  // repli sans aucune dépendance : chanson d'exemple écrite pour l'application
-  addSong({ title: SAMPLE_SONG.title, artist: SAMPLE_SONG.artist, url: '', lyrics: SAMPLE_SONG.lyrics, sample: true });
-}
-$('#homeTry').onclick = tryExample;
-$('#heroTry').onclick = tryExample;
-$('#dlgExample').onclick = tryExample;
 $('#heroAdd').onclick = () => songsDlg.showModal();
 
 // ---------- aide : schémas + bons réflexes ----------
