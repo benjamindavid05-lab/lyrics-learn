@@ -38,3 +38,14 @@ Voir `.env.example`.
 
 Ordre des moteurs : Gemini (contexte de la chanson) → DeepL (ligne par ligne) → Google Translate.
 DeepL ne fournit ni romanisation ni notes sur les expressions. Diagnostic Gemini : http://localhost:3000/api/gemini-check
+
+## Lancer sans terminal
+
+**Sur Mac** : double-cliquez sur `Lancer Lyrics Learn.command`. Il met l'app à jour (`git pull`), arrête l'ancien serveur, la démarre et ouvre le navigateur.
+(Si Mac refuse : un seul `chmod +x "Lancer Lyrics Learn.command"` dans le terminal, une fois.)
+
+**En ligne (aucun terminal)** : le fichier `render.yaml` déploie l'app sur Render. À chaque `git push` sur `main`, le site se met à jour tout seul.
+1. Créez un compte sur https://render.com et connectez GitHub.
+2. « New + » > « Blueprint » > choisissez ce dépôt.
+3. Renseignez les variables : `APP_PASSWORD` (obligatoire : protège vos clés), puis `GEMINI_API_KEY`, `GENIUS_TOKEN`, `DEEPL_API_KEY` si vous les avez.
+Les données (chansons, mots) restent dans le navigateur de chaque appareil.

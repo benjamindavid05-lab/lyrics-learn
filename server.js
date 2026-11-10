@@ -1,4 +1,5 @@
 import http from 'node:http';
+import crypto from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -114,8 +115,21 @@ async function api(req, res, url) {
   } catch (e) { json(res, 502, { error: e.message }); }
 }
 
+// Mot de passe facultatif (APP_PASSWORD) : indispensable si l'app est hébergée en ligne, pour protéger vos clés de traduction.
+const sha = (x) => crypto.createHash('sha256').update(String(x)).digest();
+function authorized(req) {
+  const pass = process.env.APP_PASSWORD;
+  if (!pass) return true;
+  const h = req.headers.authorization || '';
+  if (!h.startsWith('Basic ')) return false;
+  const given = Buffer.from(h.slice(6), 'base64').toString().replace(/^[^:]*:/, '');
+  return crypto.timingSafeEqual(sha(given), sha(pass));
+}
+
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
+  if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
+  if (!authorized(req)) { res.writeHead(401, { 'www-authenticate': 'Basic realm="Lyrics Learn", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' }); return res.end('Mot de passe requis'); }
   if (url.pathname.startsWith('/api/')) return api(req, res, url);
   const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
   const file = path.resolve(root, rel);

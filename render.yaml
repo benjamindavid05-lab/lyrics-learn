@@ -1,0 +1,22 @@
+# Hébergement sur Render (https://render.com) : "New +" > "Blueprint" > choisir ce dépôt.
+# À chaque `git push` sur main, le site se met à jour tout seul.
+services:
+  - type: web
+    name: lyrics-learn
+    runtime: node
+    plan: free
+    buildCommand: echo "rien à construire"
+    startCommand: node server.js
+    autoDeploy: true
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: APP_PASSWORD   # mot de passe d'accès au site (identifiant : ce que vous voulez)
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GENIUS_TOKEN
+        sync: false
+      - key: DEEPL_API_KEY
+        sync: false
