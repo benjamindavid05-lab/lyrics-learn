@@ -1,0 +1,11 @@
+{
+  "name": "lyrics-learn",
+  "version": "1.0.0",
+  "description": "Apprendre des langues avec les paroles Genius : traduction, objectif de mots, bibliothèque.",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test.js"
+  },
+  "engines": { "node": ">=18" }
+}

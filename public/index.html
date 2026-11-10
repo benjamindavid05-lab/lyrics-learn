@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lyrics Learn · apprendre une langue avec les paroles</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">♪ Lyrics Learn</div>
+    <nav class="tabs">
+      <button data-tab="song" class="active">Chanson</button>
+      <button data-tab="library">Bibliothèque <span id="libCount" class="badge">0</span></button>
+    </nav>
+    <label class="lang">Traduire en
+      <select id="target"></select>
+    </label>
+  </header>
+
+  <main id="songTab" class="layout">
+    <aside class="side">
+      <section class="card">
+        <h2>Ajouter une chanson</h2>
+        <form id="urlForm">
+          <input id="url" type="url" placeholder="https://genius.com/…-lyrics" required>
+          <button class="primary">Importer depuis Genius</button>
+        </form>
+        <details id="manual">
+          <summary>Ou coller les paroles</summary>
+          <input id="mTitle" placeholder="Titre">
+          <input id="mArtist" placeholder="Artiste">
+          <textarea id="mLyrics" rows="6" placeholder="Paroles…"></textarea>
+          <button id="mGo" class="secondary" type="button">Utiliser ces paroles</button>
+        </details>
+        <p id="status" class="status" role="status"></p>
+      </section>
+      <section class="card">
+        <h2>Mes chansons</h2>
+        <ul id="songList" class="songs"></ul>
+      </section>
+    </aside>
+
+    <section class="center">
+      <div id="empty" class="card empty">
+        <h2>Commencez par une chanson</h2>
+        <p>Collez un lien Genius : les paroles sont importées et traduites ligne par ligne.</p>
+        <ul>
+          <li><b>Cliquez</b> un mot, ou <b>sélectionnez</b> une expression, pour la traduire et l’enregistrer.</li>
+          <li>Fixez un <b>objectif de mots</b> à apprendre : ils sont mis en relief dans les paroles.</li>
+          <li>Dans la <b>bibliothèque</b>, survolez un mot pour voir la phrase d’où il vient.</li>
+        </ul>
+      </div>
+      <article id="songView" class="card" hidden>
+        <div class="song-head">
+          <div>
+            <h1 id="sTitle"></h1>
+            <div id="sArtist" class="muted"></div>
+          </div>
+          <label class="toggle"><input type="checkbox" id="showTr" checked> Traduction</label>
+        </div>
+        <div id="lyrics" class="lyrics"></div>
+      </article>
+    </section>
+
+    <aside class="side" id="goalSide" hidden>
+      <section class="card">
+        <h2>🎯 Objectif de la chanson</h2>
+        <div class="goal-ctl">
+          <label>Mots à apprendre
+            <select id="goalSize"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
+          </label>
+          <button id="suggest" class="secondary">Suggérer</button>
+        </div>
+        <div class="progress"><div id="bar"></div></div>
+        <div id="progText" class="muted"></div>
+        <ul id="goalList" class="goal"></ul>
+        <label class="toggle"><input type="checkbox" id="quiz"> Mode révision (masquer les traductions)</label>
+        <p class="muted small">Astuce : cliquez un mot dans les paroles puis « Ajouter à l’objectif » pour choisir vous-même.</p>
+      </section>
+    </aside>
+  </main>
+
+  <main id="libraryTab" class="library" hidden>
+    <div class="card">
+      <div class="lib-tools">
+        <input id="libSearch" type="search" placeholder="Rechercher un mot, une traduction, une chanson…">
+        <button id="export" class="secondary">Exporter CSV (Anki)</button>
+      </div>
+      <p class="muted small">Survolez un mot pour voir la phrase de la chanson dont il est tiré.</p>
+      <ul id="libList" class="lib"></ul>
+      <p id="libEmpty" class="muted" hidden>Aucun mot enregistré pour l’instant.</p>
+    </div>
+  </main>
+
+  <div id="pop" class="pop" hidden></div>
+  <div id="tip" class="tip" hidden></div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
