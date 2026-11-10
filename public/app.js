@@ -252,6 +252,7 @@ function renderHome() {
   $('#stats').innerHTML = [[songs.length, songs.length === 1 ? t('stat.song') : t('stat.songs')], [state.library.length, t('stat.saved')], [learned, t('stat.learned')]]
     .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
   $('#homeResume').hidden = !song();
+  { const hint = document.querySelector('.cta-hint'); if (hint) hint.hidden = !!song() || songs.length > 0; } // l'indication « Commencez ici » ne sert qu'au tout début
   $('#stats').hidden = !songs.length;
   $('#homeSongs').closest('.hblock').hidden = !songs.length;
   $('#how').innerHTML = howHtml(t);

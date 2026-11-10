@@ -681,3 +681,8 @@ body{font-family:var(--sans)}
 .syncbar{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin:10px 0 0;font:600 13px var(--sans);color:var(--dim)}
 .syncbar .syncon{color:var(--ink)}.syncbar .syncon b{color:var(--c1);font-size:16px}
 .syncoff{display:inline-flex;align-items:center;gap:10px;margin-left:auto}.syncoff em{font-style:normal;min-width:46px;text-align:center;color:var(--ink)}
+
+/* indication « Commencez ici » : toujours sur sa propre ligne, sous le bouton, alignée à gauche */
+.hcopy .ctas{row-gap:6px}
+.cta-hint{flex-basis:100%;order:3;margin:0;padding-left:36px;justify-content:flex-start}
+#homeResume{order:2}
