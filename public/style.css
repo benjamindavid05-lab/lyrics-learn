@@ -3,8 +3,8 @@
   --bg:#f6f6f6;--ink:#0a0a0a;--dim:#6b6b6b;--soft:#d8d8d8;--card:#ffffff;--danger:#b3261e;
   --g1:#46e0c9;--g2:#a9e8a1;--g3:#e6e87b;
   --grad:linear-gradient(135deg,var(--g1),var(--g2) 55%,var(--g3));
-  --serif:"Times New Roman",Times,"Liberation Serif","Noto Serif",serif;
-  --sans:"Helvetica Neue",Helvetica,Arial,"Inter",system-ui,sans-serif;
+  --serif:"Fredoka","Nunito","Arial Rounded MT Bold","Segoe UI",system-ui,sans-serif;
+  --sans:"Nunito","Segoe UI","Helvetica Neue",Arial,system-ui,sans-serif;
   --head:72px;
 }
 @media(prefers-color-scheme:dark){:root{--bg:#0f0f0f;--ink:#f3f3f3;--dim:#a2a2a2;--soft:#333;--card:#171717;--danger:#ff8a80}}
@@ -478,3 +478,173 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 .card .ct1 .flag{font-size:1.3em;vertical-align:-.1em}
 
 .cta-note{margin:12px 0 0;font:400 .85rem var(--sans);color:var(--dim)}
+
+/* ---------- couleurs, mouvement, petit côté jeu ---------- */
+:root{--c1:#ff9f8a;--c2:#ffe27a;--c3:#7ee0c3;--c4:#b9a6ff;--hand:"Bradley Hand","Segoe Print","Marker Felt","Comic Sans MS",cursive}
+
+/* notes de musique qui flottent derrière l'accueil */
+.hhero{position:relative}
+.hcopy,.demo2{position:relative;z-index:1}
+.floaties{position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0}
+.floaties span{position:absolute;bottom:-30px;font:400 28px/1 var(--serif);opacity:0;animation:rise 9s linear infinite}
+.floaties span:nth-child(1){left:3%;color:var(--c1);animation-delay:0s}
+.floaties span:nth-child(2){left:18%;color:var(--c4);animation-delay:2.2s;font-size:34px}
+.floaties span:nth-child(3){left:36%;color:var(--c2);animation-delay:4.5s;font-size:22px}
+.floaties span:nth-child(4){left:52%;color:var(--c3);animation-delay:1.2s}
+.floaties span:nth-child(5){left:68%;color:var(--c1);animation-delay:6s;font-size:24px}
+.floaties span:nth-child(6){left:82%;color:var(--c4);animation-delay:3.3s;font-size:20px}
+.floaties span:nth-child(7){left:94%;color:var(--c3);animation-delay:5.4s;font-size:30px}
+@keyframes rise{0%{transform:translateY(0) rotate(-8deg);opacity:0}12%{opacity:.8}85%{opacity:.5}100%{transform:translateY(-440px) rotate(14deg);opacity:0}}
+
+/* égaliseur à côté de « Learn through music » */
+.kick{display:flex;align-items:center;gap:10px}
+.eq{display:inline-flex;gap:2px;align-items:flex-end;height:14px}
+.eq i{width:3px;background:var(--c1);border-radius:1px;animation:eq 1s ease-in-out infinite}
+.eq i:nth-child(2){background:var(--c2);animation-delay:.2s}.eq i:nth-child(3){background:var(--c3);animation-delay:.45s}.eq i:nth-child(4){background:var(--c4);animation-delay:.1s}
+@keyframes eq{0%,100%{height:3px}50%{height:14px}}
+
+/* bouton d'action : il bat doucement, une flèche dessinée à la main le désigne */
+.btn.pulse{animation:pulse 2.4s ease-out infinite}
+@keyframes pulse{0%{box-shadow:0 0 0 0 rgba(126,224,195,.85)}70%,100%{box-shadow:0 0 0 16px rgba(126,224,195,0)}}
+.hcopy .ctas{position:relative;align-items:center}
+.cta-hint{display:inline-flex;align-items:flex-start;gap:4px;color:var(--ink);transform:rotate(-3deg);animation:hint 1.8s ease-in-out infinite}
+.cta-hint svg{width:58px;height:34px;margin-top:10px;overflow:visible}
+.cta-hint b{font:700 20px/1 var(--hand);white-space:nowrap}
+@keyframes hint{0%,100%{transform:rotate(-3deg) translateX(0)}50%{transform:rotate(-3deg) translateX(-7px)}}
+
+/* les 4 étapes : cartes colorées, scènes animées, flèches tracées à la main */
+.how{border:0;gap:34px;margin-top:26px;grid-template-columns:repeat(4,1fr)}
+.how li{border:2px solid #0a0a0a;border-radius:16px;padding:18px 18px 22px;color:#0a0a0a;box-shadow:5px 5px 0 #0a0a0a;transition:transform .2s ease,box-shadow .2s ease}
+.how li:last-child{border-right:2px solid #0a0a0a}
+.how li:nth-child(odd){transform:rotate(-1.2deg)}.how li:nth-child(even){transform:rotate(1deg)}
+.how li:hover{transform:translateY(-6px) rotate(0);box-shadow:8px 10px 0 #0a0a0a}
+.how li.c1{background:var(--c1)}.how li.c2{background:var(--c2)}.how li.c3{background:var(--c3)}.how li.c4{background:var(--c4)}
+.how li:not(:last-child)::after{content:none}
+.how-n{position:absolute;top:-16px;left:-12px;width:38px;height:38px;border-radius:50%;background:#0a0a0a;color:#fff;display:grid;place-items:center;font:700 19px/1 var(--serif);letter-spacing:0;transform:rotate(-8deg);animation:bob 3s ease-in-out infinite}
+.how li:nth-child(2) .how-n{animation-delay:.3s}.how li:nth-child(3) .how-n{animation-delay:.6s}.how li:nth-child(4) .how-n{animation-delay:.9s}
+@keyframes bob{0%,100%{transform:rotate(-8deg) translateY(0)}50%{transform:rotate(-8deg) translateY(-3px)}}
+.how h3{font:700 24px/1.1 var(--serif);margin:14px 0 6px}
+.how p{color:#222;font-size:15px}
+.how-arr{position:absolute;right:-48px;top:44%;width:56px;height:38px;color:var(--ink);z-index:3;overflow:visible}
+.how-arr path:first-child{animation:dash 1.2s linear infinite}
+@keyframes dash{to{stroke-dashoffset:-22}}
+
+.sc{position:relative;height:104px;background:#fff;border:2px solid #0a0a0a;border-radius:12px;overflow:hidden}
+.sc-cur{position:absolute;left:0;top:0;width:18px;height:23px;z-index:3;filter:drop-shadow(0 2px 2px rgba(0,0,0,.3))}
+/* 1 : on tape une recherche */
+.sc1{padding:14px 12px}
+.sc-search{display:flex;align-items:center;gap:8px;border:2px solid #0a0a0a;border-radius:99px;padding:6px 10px;font:500 13px/1 var(--sans);color:#0a0a0a}
+.sc-search svg{width:15px;height:15px;flex:none}
+.typing{display:inline-block;overflow:hidden;white-space:nowrap;border-right:2px solid #0a0a0a;width:0;animation:type 5s steps(14) infinite,caret .7s step-end infinite}
+@keyframes type{0%{width:0}45%,88%{width:14ch}100%{width:0}}
+@keyframes caret{50%{border-color:transparent}}
+.sc-res{display:flex;align-items:center;gap:8px;margin-top:10px;opacity:0;animation:res 5s infinite}
+.sc-res i{width:26px;height:26px;border-radius:6px;background:linear-gradient(135deg,var(--c1),var(--c4))}
+.sc-res b{height:6px;border-radius:3px;background:#0a0a0a;width:38%;opacity:.8}.sc-res b+b{width:22%;opacity:.35}
+@keyframes res{0%,45%{opacity:0;transform:translateY(8px)}55%,88%{opacity:1;transform:none}100%{opacity:0}}
+/* 2 : les paroles arrivent, des notes montent */
+.sc2{padding:16px 14px}
+.ln{display:block;height:8px;border-radius:4px;background:#0a0a0a;margin:0 0 11px;width:0;opacity:.8;animation:ln 4.5s ease-out infinite}
+.l1{--w:78%}.l2{--w:58%;animation-delay:.35s}.l3{--w:70%;animation-delay:.7s}.l4{--w:44%;animation-delay:1.05s}
+@keyframes ln{0%{width:0}18%,85%{width:var(--w)}100%{width:0}}
+.nt{position:absolute;right:12px;bottom:6px;font:700 20px/1 var(--serif);opacity:0;animation:rise2 3s ease-in infinite}
+.n1{color:var(--c1)}.n2{right:34px;color:var(--c4);animation-delay:1.4s}
+@keyframes rise2{0%{transform:translateY(0);opacity:0}20%{opacity:1}100%{transform:translateY(-70px) rotate(18deg);opacity:0}}
+/* 3 : on clique un mot, sa traduction apparaît */
+.sc3{padding:18px 12px}
+.wd{display:flex;gap:7px;margin-bottom:12px}
+.wd u{display:block;height:12px;width:34px;border-radius:3px;background:#0a0a0a;opacity:.75}
+.wd u:nth-child(2){width:46px}.wd u:nth-child(3){width:28px}
+.wd.faint u{opacity:.25}
+.wd .hit{animation:hitw 4.5s infinite}
+@keyframes hitw{0%,30%{background:#0a0a0a;opacity:.75}38%,85%{background:linear-gradient(135deg,var(--c3),var(--c2));opacity:1;box-shadow:0 0 0 2px #0a0a0a}100%{background:#0a0a0a;opacity:.75;box-shadow:none}}
+.sc3 .sc-cur{animation:cur3 4.5s infinite}
+@keyframes cur3{0%{transform:translate(110px,76px);opacity:0}12%{opacity:1}30%{transform:translate(54px,22px)}34%{transform:translate(54px,22px) scale(.8)}38%,85%{transform:translate(54px,22px)}100%{transform:translate(110px,76px);opacity:0}}
+.bub{position:absolute;left:36px;top:46px;background:#0a0a0a;border-radius:8px;padding:7px 9px;display:flex;flex-direction:column;gap:4px;opacity:0;transform:scale(.6);transform-origin:20% 0;animation:bub 4.5s infinite}
+.bub i{display:block;height:5px;width:40px;border-radius:3px;background:#fff}.bub i+i{width:24px;background:var(--c3)}
+@keyframes bub{0%,38%{opacity:0;transform:scale(.6)}46%,85%{opacity:1;transform:scale(1)}100%{opacity:0}}
+.spark{position:absolute;left:78px;top:8px;font-size:18px;color:var(--c1);opacity:0;animation:spark 4.5s infinite}
+@keyframes spark{0%,36%{opacity:0;transform:scale(.3) rotate(0)}42%{opacity:1;transform:scale(1.3) rotate(25deg)}60%,100%{opacity:0;transform:scale(1.6) rotate(50deg)}}
+/* 4 : on enregistre, des points s'accumulent */
+.sc4{display:grid;place-items:center}
+.bk{width:34px;height:42px;animation:pop 4s infinite;transform-origin:50% 100%}
+.ck{stroke-dasharray:22;stroke-dashoffset:22;animation:tick 4s infinite}
+@keyframes pop{0%,15%{transform:scale(.7)}25%{transform:scale(1.15) rotate(-4deg)}35%,100%{transform:scale(1)}}
+@keyframes tick{0%,20%{stroke-dashoffset:22}35%,90%{stroke-dashoffset:0}100%{stroke-dashoffset:22}}
+.xp{position:absolute;right:10px;top:10px;background:#0a0a0a;color:var(--c2);font:700 12px/1 var(--sans);padding:5px 8px;border-radius:99px;opacity:0;animation:xp 4s infinite}
+@keyframes xp{0%,30%{opacity:0;transform:translateY(10px) scale(.6)}40%{opacity:1;transform:translateY(0) scale(1.1)}50%,85%{opacity:1;transform:none}100%{opacity:0;transform:translateY(-8px)}}
+.dots{position:absolute;left:10px;bottom:9px;display:flex;gap:5px}
+.dots i{width:10px;height:10px;border-radius:50%;border:2px solid #0a0a0a;background:#fff;animation:dot 4s infinite}
+.dots i:nth-child(1){animation-delay:0s}.dots i:nth-child(2){animation-delay:.25s}.dots i:nth-child(3){animation-delay:.5s}
+@keyframes dot{0%,25%{background:#fff}40%,88%{background:var(--c3)}100%{background:#fff}}
+
+@media(max-width:960px){
+  .how{grid-template-columns:repeat(2,1fr);gap:30px 26px}
+  .how-arr{display:none}
+  .cta-hint{display:none}
+}
+@media(max-width:560px){.how{grid-template-columns:1fr}.how li{transform:none!important}}
+/* aide : on garde la grille à deux colonnes sans flèches */
+.dlg.help .how{grid-template-columns:repeat(2,1fr);gap:26px 22px}
+.dlg.help .how li{border:2px solid #0a0a0a!important}
+.dlg.help .how-arr{display:none}
+@media(prefers-reduced-motion:reduce){
+  .floaties,.cta-hint{display:none}
+  .btn.pulse,.eq i,.how-n,.how-arr path,.typing,.sc *{animation:none!important}
+  .typing{width:14ch}.sc-res,.bub,.xp{opacity:1}.ln{width:var(--w)}.ck{stroke-dashoffset:0}.sc-cur{display:none}
+}
+
+/* ---------- finition ludique ---------- */
+body{font-family:var(--sans)}
+.display,.hcopy .display{font-weight:600;letter-spacing:-.01em;line-height:1.02}
+.lead{font-family:var(--sans);font-size:1.18rem;line-height:1.55;font-weight:600;color:#3a3a3a}
+@media(prefers-color-scheme:dark){.lead{color:#cfcfcf}}
+.label{font-weight:800;letter-spacing:.14em}
+/* boutons arrondis, qui rebondissent */
+.btn,.primary,.secondary{border-radius:14px;border-width:2px;font-weight:800;font-size:12.5px;letter-spacing:.1em;padding:15px 24px;transition:transform .15s cubic-bezier(.3,1.6,.5,1),box-shadow .15s,background .15s,color .15s}
+.btn.solid,.primary{box-shadow:0 5px 0 rgba(0,0,0,.35)}
+.btn:hover:not(:disabled),.secondary:hover{transform:translateY(-3px)}
+.btn.solid:hover,.primary:hover{background:var(--ink);color:var(--bg);box-shadow:0 8px 0 rgba(0,0,0,.35)}
+.btn:active:not(:disabled){transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.35)}
+/* accueil : taches de couleur, soulignement en dégradé animé, fenêtre colorée */
+.hhero::before{content:"";position:absolute;z-index:0;left:-80px;top:-40px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(255,159,138,.55),transparent 68%);filter:blur(6px);pointer-events:none}
+.hhero::after{content:"";position:absolute;z-index:0;right:-60px;bottom:-60px;width:380px;height:380px;border-radius:50%;background:radial-gradient(circle,rgba(185,166,255,.5),transparent 68%);pointer-events:none}
+.hcopy .display::after{content:"";display:block;width:200px;height:12px;margin-top:16px;border-radius:99px;background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3),var(--c4),var(--c1));background-size:200% 100%;animation:slide 4s linear infinite}
+@keyframes slide{to{background-position:200% 0}}
+.d-win{border:2px solid var(--ink);border-radius:18px;box-shadow:10px 10px 0 var(--c3);transform:rotate(1.2deg)}
+.d-bar{background:var(--c2);border-bottom:2px solid var(--ink)}
+.d-bar i{background:#fff;border-width:2px}
+.d-pair{background:#fff;color:#0a0a0a;border:2px solid #0a0a0a;border-radius:99px;padding:.9cqw 2cqw}
+.d-hit{border-radius:1.2cqw}
+.d-panel{background:#fff8dc;color:#0a0a0a}
+.d-panel .d-pl,.d-panel .d-pd{color:#0a0a0a}
+.d-btn{border-radius:2cqw;border-width:2px;background:var(--c1)}
+.d-chip{border-radius:99px;background:#0a0a0a;color:var(--c2)}
+.d-caps{font-weight:800;color:var(--ink)}
+.d-caps span::before{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--c1);color:#0a0a0a;margin-right:8px;font-weight:800}
+/* titres de section en pastille */
+.hblock>.label{display:inline-block;background:var(--c2);color:#0a0a0a;border:2px solid #0a0a0a;border-radius:99px;padding:8px 16px;transform:rotate(-1.5deg);box-shadow:3px 3px 0 #0a0a0a}
+.hblock:nth-of-type(2)>.label{background:var(--c3)}
+/* statistiques et cartes colorées */
+.stats{border:0;gap:18px;margin-top:44px}
+.stat{border:2px solid #0a0a0a;border-radius:16px;color:#0a0a0a;box-shadow:4px 4px 0 #0a0a0a}
+.stat:nth-child(1){background:var(--c3)}.stat:nth-child(2){background:var(--c2)}.stat:nth-child(3){background:var(--c4)}
+.stat span{color:#222;font-weight:800}
+.stat b{font-weight:700}
+.cards{border-left:0;gap:18px}
+.card{border:2px solid var(--ink);border-radius:16px;background:var(--card);box-shadow:4px 4px 0 var(--ink);transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-4px) rotate(-.6deg);box-shadow:6px 8px 0 var(--ink)}
+.card.new{background:var(--c3)}
+.start{border:2px solid var(--ink);border-radius:18px;background:var(--card);box-shadow:5px 5px 0 var(--c1)}
+/* mots du texte : survol arrondi */
+.w{border-radius:5px}
+.logo,.brand{font-family:var(--serif)}
+
+.d-l{font-size:5.6cqw}.d-l.faint{font-size:5cqw}
+.d-lyrics{width:54cqw}
+.d-caps .c1::before{content:"1"}.d-caps .c2::before{content:"2"}.d-caps .c3::before{content:"3"}
+.d-caps span{display:flex;align-items:center}
+.how{gap:50px}
+.how-arr{right:-62px;width:70px;height:46px;top:40%}
+.how-arr path{stroke-width:3}
+@media(max-width:960px){.how{gap:34px 28px}}

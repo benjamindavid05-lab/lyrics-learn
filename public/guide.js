@@ -30,9 +30,18 @@ const icon = (k) => `<svg viewBox="0 0 40 40" width="44" height="44" fill="none"
 
 // « Comment ça marche » : 4 étapes illustrées, reliées par des flèches
 export function howHtml(t) {
-  const steps = [['search', 1], ['doc', 2], ['click', 3], ['save', 4]];
-  return '<ol class="how">' + steps.map(([ic, n]) =>
-    `<li><div class="how-ic">${icon(ic)}</div><span class="how-n">0${n}</span><h3>${esc(t(`how.${n}.t`))}</h3><p>${esc(t(`how.${n}.d`))}</p></li>`).join('') + '</ol>';
+  const cur = '<svg class="sc-cur" viewBox="0 0 20 26" aria-hidden="true"><path d="M2 2l15 10-6.6 1.6L7 20.5z" fill="#0a0a0a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
+  const scenes = [
+    `<div class="sc sc1"><div class="sc-search"><svg viewBox="0 0 20 20" aria-hidden="true"><circle cx="8" cy="8" r="5.5" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12.5 12.5L18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg><span class="typing">${esc(t('how.type'))}</span></div><div class="sc-res"><i></i><b></b><b></b></div></div>`,
+    `<div class="sc sc2"><span class="nt n1">♪</span><span class="nt n2">♫</span><u class="ln l1"></u><u class="ln l2"></u><u class="ln l3"></u><u class="ln l4"></u></div>`,
+    `<div class="sc sc3"><div class="wd"><u></u><u class="hit"></u><u></u></div><div class="wd faint"><u></u><u></u></div><div class="bub"><i></i><i></i></div><span class="spark">✦</span>${cur}</div>`,
+    `<div class="sc sc4"><svg class="bk" viewBox="0 0 24 30" aria-hidden="true"><path d="M3 2h18v26l-9-6-9 6z" fill="#fff" stroke="#0a0a0a" stroke-width="2" stroke-linejoin="round"/><path class="ck" d="M7.5 11l3 3 6-6.5" fill="none" stroke="#0a0a0a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="xp">+10 XP</span><div class="dots"><i></i><i></i><i></i><i></i></div></div>`
+  ];
+  const arrow = '<svg class="how-arr" viewBox="0 0 60 40" aria-hidden="true"><path d="M3 24C14 8 30 6 44 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-dasharray="5 6"/><path d="M36 10l10 9-13 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  return '<ol class="how">' + scenes.map((sc, i) => {
+    const n = i + 1;
+    return `<li class="c${n}"><span class="how-n">${n}</span>${sc}<h3>${esc(t(`how.${n}.t`))}</h3><p>${esc(t(`how.${n}.d`))}</p>${n < 4 ? arrow : ''}</li>`;
+  }).join('') + '</ol>';
 }
 
 // Grille d'objectif annotée (1 = mot, 2 = appris, 3 = proposer d'autres mots)

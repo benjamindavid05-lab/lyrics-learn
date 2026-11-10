@@ -6,6 +6,8 @@
   <title>Lyrics Learn · learn a language with lyrics</title>
   <meta name="description" content="Import song lyrics, read them with their translation, save the words you want to learn.">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -55,12 +57,14 @@
   <!-- HOME -->
   <main id="homeTab" class="home">
     <section class="hhero">
+      <div class="floaties" aria-hidden="true"><span>♪</span><span>♫</span><span>✦</span><span>♬</span><span>♪</span><span>✦</span><span>♫</span></div>
       <div class="hcopy">
-        <div class="label" data-i18n="home.kicker">Learn through music</div>
+        <div class="label kick"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span data-i18n="home.kicker">Learn through music</span></div>
         <h1 class="display" data-i18n="home.title">Learn a language with your favorite songs.</h1>
         <p class="lead" data-i18n="home.lead">Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.</p>
         <div class="ctas">
-          <button id="homeAdd" class="btn solid" type="button" data-i18n="home.cta">Find a song and start learning</button>
+          <button id="homeAdd" class="btn solid pulse" type="button" data-i18n="home.cta">Find a song and start learning</button>
+          <span class="cta-hint" aria-hidden="true"><svg viewBox="0 0 70 40"><path d="M66 30C50 36 24 34 8 14" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M6 24l1-12 12 3" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><b data-i18n="home.hint">Start here!</b></span>
           <button id="homeResume" class="btn" type="button" hidden data-i18n="home.resume">Resume reading</button>
         </div>
         <p class="cta-note" data-i18n="home.ctaNote">Type a title or an artist. No account, nothing to install.</p>

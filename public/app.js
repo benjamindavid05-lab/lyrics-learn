@@ -841,45 +841,24 @@ function openImport(h) {
   if (songsDlg.open) songsDlg.close();
   const label = [h.title, h.artist].filter(Boolean).join(' — ') || 'Genius';
   const hasEmbed = /^\d{1,12}$/.test(String(h.id || ''));
-  const steps = `<ol>
-      <li><div><button class="primary" id="dOpen">${esc(t('imp.openGenius'))}</button>
-        <div class="muted small" style="margin-top:4px">${esc(t('imp.openNote'))}</div></div></li>
-      <li><div>${esc(t('imp.step2'))} <kbd>${MOD}</kbd> + <kbd>A</kbd> ${esc(t('imp.then'))} <kbd>${MOD}</kbd> + <kbd>C</kbd>
-        <div class="demo" aria-hidden="true"><div class="bar"><i></i><i></i><i></i></div>
-          <div class="page"><span>אולי אולא, יהיה לי רע</span><span>יהיה לי טוב</span><span>הכל יכול לקרות</span><div class="sel"></div><div class="toast">${esc(t('imp.copied'))}</div></div>
-          <div class="keys"><kbd>${MOD} A</kbd><kbd>${MOD} C</kbd></div></div></div></li>
-      <li><div id="dState">${esc(t('imp.step3'))}
-        <div style="margin-top:8px"><button class="secondary" id="dPaste">${esc(t('imp.paste'))}</button></div></div></li>
-    </ol>`;
   dlg.innerHTML = `<button class="x" id="dX" aria-label="${esc(t('common.close'))}">✕</button>
     <div class="label">${esc(t('imp.step'))}</div>
     <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="${esc(t('imp.openOn'))}"><img src="genius-logo.svg" alt="Genius"></a></h2>
     ${hasEmbed ? `<p class="helper">${esc(t('imp.helper'))}</p>
       <div class="embedbox"><iframe id="embedFrame" title="${esc(t('imp.previewSub'))}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe></div>
       <div id="embedState" class="small">${esc(t('imp.previewLoading'))}</div>
-      <div class="acts"><button class="btn solid" id="dImport" type="button" disabled>${esc(t('imp.importThese'))}</button></div>` : `<div class="muted small">${esc(t('imp.sub'))}</div>`}
-    <details id="dManual" ${hasEmbed ? '' : 'open'}><summary>${esc(t('imp.orCopy'))}</summary>${steps}</details>`;
+      <div class="acts"><button class="btn solid" id="dImport" type="button" disabled>${esc(t('imp.importThese'))}</button></div>` : `<div id="embedState" class="small">${esc(t('imp.previewFail'))}</div>`}
+    <div id="embedFallback" class="acts" ${hasEmbed ? 'hidden' : ''}><button class="btn" id="dToManual" type="button">${esc(t('dlg.manual'))}</button></div>`;
 
-  const state$ = () => $('#dState');
-  let popup = null, done = false, embedText = '', timer = null;
+  let done = false, embedText = '', timer = null;
   const finish = async (raw) => {
     if (done) return; done = true;
-    const box = $('#embedState') || state$();
+    const box = $('#embedState');
     box.innerHTML = `<span class="ok">${esc(t('imp.found'))}</span>`;
-    if (await useText(raw, h)) { stop(); dlg.close(); if (popup && !popup.closed) popup.close(); } else done = false;
+    if (await useText(raw, h)) { stop(); dlg.close(); } else done = false;
   };
-  const tryClipboard = async (auto) => {
-    try {
-      const txt = await navigator.clipboard.readText();
-      const looksRight = norm(txt).includes(norm(h.title)) && txt.length > 60;
-      if (looksRight || (!auto && txt.trim())) return finish(txt);
-      if (!auto) state$().insertAdjacentHTML('beforeend', `<div class="status err">${esc(t('imp.noLyrics'))}</div>`);
-    } catch { if (!auto) state$().insertAdjacentHTML('beforeend', `<div class="status err">${esc(t('imp.denied'))}</div>`); }
-  };
-  const onFocus = () => setTimeout(() => tryClipboard(true), 250);
-
   // aperçu Genius : le cadre isolé renvoie le texte affiché par l'embed officiel
-  const previewFail = () => { const e = $('#embedState'); if (e && !embedText) { e.textContent = t('imp.previewFail'); const d = $('#dManual'); if (d) d.open = true; } };
+  const previewFail = () => { const e = $('#embedState'); if (e && !embedText) { e.textContent = t('imp.previewFail'); $('#embedFallback').hidden = false; } };
   const onMsg = (ev) => {
     const f = $('#embedFrame');
     if (!f || ev.source !== f.contentWindow || !ev.data || ev.data.llEmbed !== true || String(ev.data.id) !== String(h.id)) return;
@@ -890,7 +869,7 @@ function openImport(h) {
     $('#embedState').textContent = t('imp.previewReady', { n: cleaned.split('\n').filter((x) => x.trim() && !/^\[.*\]$/.test(x.trim())).length });
     $('#dImport').disabled = false;
   };
-  const stop = () => { window.removeEventListener('focus', onFocus); window.removeEventListener('message', onMsg); clearInterval(watcher); clearTimeout(timer); };
+  const stop = () => { window.removeEventListener('message', onMsg); clearInterval(watcher); clearTimeout(timer); };
 
   if (hasEmbed) {
     window.addEventListener('message', onMsg);
@@ -898,14 +877,9 @@ function openImport(h) {
     $('#dImport').onclick = () => finish(embedText);
     timer = setTimeout(previewFail, 12000);
   }
-  $('#dOpen').onclick = () => {
-    popup = window.open(h.url, 'genius', 'width=980,height=820');
-    if (!popup) state$().insertAdjacentHTML('afterbegin', `<div class="status err">${esc(t('imp.blockedPre'))}<a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(t('imp.blockedLink'))}</a>${esc(t('imp.blockedPost'))}</div>`);
-  };
-  $('#dPaste').onclick = () => tryClipboard(false);
+  $('#dToManual').onclick = () => { stop(); dlg.close(); songsDlg.showModal(); const m = $('#manual'); if (m) m.open = true; };
   $('#dX').onclick = () => { stop(); dlg.close(); };
   dlg.onclose = stop;
-  window.addEventListener('focus', onFocus);
   dlg.showModal();
 }
 
