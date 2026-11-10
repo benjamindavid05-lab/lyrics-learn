@@ -76,7 +76,7 @@ async function generate(prompt, schema) {
         try { const out = JSON.parse(text); sticky = model; return out; } catch { all429 = false; break; } // réponse illisible : autre modèle
       }
       lastMsg = await errText(res);
-      if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error(`Gemini a refusé la requête (${res.status}) : ${lastMsg || 'vérifiez GEMINI_API_KEY'}`);
+      if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error(`Gemini rejected the request (${res.status}): ${lastMsg || 'check GEMINI_API_KEY'}`);
       if (res.status !== 429) all429 = false;
       if (res.status === 429 || res.status === 404) break;   // quota ou modèle inconnu : modèle suivant
       await sleep(700 * (attempt + 1));                       // 500/503… : on patiente un peu puis on réessaie
@@ -84,7 +84,7 @@ async function generate(prompt, schema) {
     tried.push(model);
   }
   if (all429 && lastStatus === 429) cooldownUntil = Date.now() + 60000;
-  throw new Error(`Gemini indisponible (${lastStatus || 'réseau'}${lastMsg ? ' : ' + lastMsg : ''}) — modèles essayés : ${tried.join(', ') || 'aucun'}`);
+  throw new Error(`Gemini unavailable (${lastStatus || 'network'}${lastMsg ? ': ' + lastMsg : ''}) — models tried: ${tried.join(', ') || 'none'}`);
 }
 
 // Diagnostic : /api/gemini-check
@@ -121,7 +121,7 @@ ${JSON.stringify(lines)}`;
     },
     required: ['source_language_code', 'lines']
   });
-  if (!Array.isArray(r.lines) || r.lines.length !== lines.length) throw new Error('Alignement des lignes incorrect');
+  if (!Array.isArray(r.lines) || r.lines.length !== lines.length) throw new Error('Line alignment mismatch');
   return {
     results: r.lines.map((l) => ({ text: String(l.t || '').trim(), translit: String(l.rm || '').trim() })),
     source: r.source_language_code || ''
@@ -144,7 +144,7 @@ ${JSON.stringify(items.map((x) => ({ text: x.text, sentence: x.context || '' }))
     properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { t: { type: S }, rm: { type: S }, note: { type: S } }, required: ['t', 'rm', 'note'] } } },
     required: ['items']
   });
-  if (!Array.isArray(r.items) || r.items.length !== items.length) throw new Error('Alignement des mots incorrect');
+  if (!Array.isArray(r.items) || r.items.length !== items.length) throw new Error('Word alignment mismatch');
   return r.items.map((x) => ({ text: String(x.t || '').trim(), translit: String(x.rm || '').trim(), note: String(x.note || '').trim() }));
 }
 

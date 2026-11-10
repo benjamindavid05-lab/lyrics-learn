@@ -1,14 +1,15 @@
 <!doctype html>
-<html lang="fr">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Lyrics Learn · apprendre une langue avec les paroles</title>
+  <title>Lyrics Learn · learn a language with lyrics</title>
+  <meta name="description" content="Import song lyrics, read them with their translation, save the words you want to learn.">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <!-- logo : une note de musique dont la hampe est un stylo plume (hérite de la couleur du texte) -->
+  <!-- logo: a music note whose stem is a fountain pen (inherits the text color) -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
     <defs>
       <linearGradient id="ll-g" x1="0" y1="0" x2="1" y2="1">
@@ -35,66 +36,69 @@
   </svg>
 
   <header class="top">
-    <a class="brand" href="#" id="brand" aria-label="Lyrics Learn, accueil"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span>Lyrics Learn</span></a>
-    <nav class="nav" aria-label="Navigation">
-      <button data-tab="home" class="active">Accueil</button>
-      <button data-tab="song">Lecture</button>
-      <button data-tab="library">Bibliothèque <span id="libCount" class="count">0</span></button>
+    <a class="brand" href="#" id="brand" aria-label="Lyrics Learn"><svg class="mark" aria-hidden="true"><use href="#mark"/></svg><span>Lyrics Learn</span></a>
+    <nav class="nav" aria-label="Main">
+      <button data-tab="home" class="active" data-i18n="nav.home">Home</button>
+      <button data-tab="song" data-i18n="nav.read">Reading</button>
+      <button data-tab="library"><span data-i18n="nav.library">Library</span> <span id="libCount" class="count">0</span></button>
     </nav>
-    <button id="openSongs" class="btn solid sm" type="button">+ Chanson</button>
-    <label class="lang"><span>Traduire en</span>
+    <button id="openSongs" class="btn solid sm" type="button" data-i18n="nav.add">+ Song</button>
+    <label class="lang"><span data-i18n="lang.translateTo">Translate to</span>
       <select id="target"></select>
     </label>
+    <div class="uilang" role="group" aria-label="Interface language">
+      <button type="button" data-lang="en" class="active">EN</button><button type="button" data-lang="fr">FR</button>
+    </div>
   </header>
 
-  <!-- ACCUEIL -->
+  <!-- HOME -->
   <main id="homeTab" class="home">
     <section class="hhero">
-      <div class="label">Apprendre par la chanson</div>
-      <h1 class="display">Apprenez une langue avec vos chansons.</h1>
-      <p class="lead">Importez les paroles, lisez-les avec leur traduction, choisissez les mots à retenir, et retrouvez chacun avec la phrase d’où il vient.</p>
+      <div class="label" data-i18n="home.kicker">Learn through music</div>
+      <h1 class="display" data-i18n="home.title">Learn a language with your favorite songs.</h1>
+      <p class="lead" data-i18n="home.lead">Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.</p>
       <div class="ctas">
-        <button id="homeAdd" class="btn solid" type="button">Ajouter une chanson</button>
-        <button id="homeResume" class="btn" type="button" hidden>Reprendre la lecture</button>
+        <button id="homeAdd" class="btn solid" type="button" data-i18n="home.add">Add a song</button>
+        <button id="homeResume" class="btn" type="button" hidden data-i18n="home.resume">Resume reading</button>
       </div>
     </section>
-    <section id="stats" class="stats" aria-label="Votre progression"></section>
+    <section id="stats" class="stats" aria-label="Progress"></section>
     <section class="hblock">
-      <div class="label">Mes chansons</div>
+      <div class="label" data-i18n="home.songs">My songs</div>
       <div id="homeSongs" class="cards"></div>
     </section>
     <section class="hblock">
-      <div class="label">Comment ça marche</div>
+      <div class="label" data-i18n="home.how">How it works</div>
       <ol class="steps">
-        <li><span>01</span><p>Ajoutez une chanson : les paroles sont importées puis traduites ligne par ligne.</p></li>
-        <li><span>02</span><p>Cliquez un mot, ou sélectionnez une expression, pour la traduire et l’enregistrer.</p></li>
-        <li><span>03</span><p>Fixez un objectif de mots : ils sont mis en relief dans les paroles.</p></li>
-        <li><span>04</span><p>Retrouvez vos mots dans la bibliothèque, avec la phrase de la chanson dont ils viennent.</p></li>
+        <li><span>01</span><p data-i18n="home.s1">Add a song: the lyrics are imported, then translated line by line.</p></li>
+        <li><span>02</span><p data-i18n="home.s2">Click a word, or select an expression, to translate and save it.</p></li>
+        <li><span>03</span><p data-i18n="home.s3">Set a word goal: those words are highlighted in the lyrics.</p></li>
+        <li><span>04</span><p data-i18n="home.s4">Find your words in the library, with the line of the song they come from.</p></li>
       </ol>
     </section>
   </main>
 
-  <!-- LECTURE -->
+  <!-- READING -->
   <main id="songTab" class="stage" hidden>
     <section class="reader">
       <div id="empty" class="hero">
-        <div class="label">Lecture</div>
-        <h1 class="display">Aucune chanson ouverte.</h1>
+        <div class="label" data-i18n="read.kicker">Reading</div>
+        <h1 class="display" data-i18n="read.none">No song open.</h1>
         <div class="ctas">
-          <button id="heroAdd" class="btn solid" type="button">Ajouter une chanson</button>
+          <button id="heroAdd" class="btn solid" type="button" data-i18n="home.add">Add a song</button>
         </div>
       </div>
 
       <article id="songView" hidden>
         <div class="kickerrow">
           <div id="sArtist" class="label"></div>
-          <label class="toggle"><input type="checkbox" id="showTr" checked> Traduction</label>
+          <label class="toggle"><input type="checkbox" id="showTr" checked> <span data-i18n="toggle.tr">Translation</span></label>
         </div>
         <h1 id="sTitle" class="display"></h1>
         <div class="metarow"><div id="sSrc" class="src"></div><div id="sEngine" class="small"></div></div>
         <div id="player" class="player"></div>
         <div id="listen" class="listen"></div>
-        <div id="tip1" class="hint" hidden><span>Cliquez un mot pour le traduire. Sélectionnez plusieurs mots pour une expression.</span><button id="tip1x" aria-label="Fermer">✕</button></div>
+        <div id="tip1" class="hint" hidden><span data-i18n="tip.first">Click a word to translate it. Select several words for an expression.</span><button id="tip1x" data-i18n-aria="common.close" aria-label="Close">✕</button></div>
         <div id="lyrics" class="lyrics"></div>
       </article>
     </section>
@@ -104,53 +108,53 @@
 
       <section class="goalbox">
         <div class="goalhead">
-          <div class="label">Objectif</div>
+          <div class="label" data-i18n="goal.title">Goal</div>
           <div class="goalctl">
             <span id="progText" class="prog"></span>
-            <select id="goalSize" aria-label="Nombre de mots"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
+            <select id="goalSize" data-i18n-aria="goal.count" aria-label="Number of words"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
           </div>
         </div>
         <div class="progress"><div id="bar"></div></div>
         <div id="goalGrid" class="grid"></div>
-        <label class="toggle quizrow"><input type="checkbox" id="quiz"> Mode révision : masquer les traductions</label>
+        <label class="toggle quizrow"><input type="checkbox" id="quiz"> <span data-i18n="goal.quiz">Review mode: hide translations</span></label>
       </section>
     </aside>
   </main>
 
-  <!-- BIBLIOTHÈQUE -->
+  <!-- LIBRARY -->
   <main id="libraryTab" class="library" hidden>
-    <div class="label">Bibliothèque</div>
-    <h1 class="display">Vos mots.</h1>
+    <div class="label" data-i18n="lib.kicker">Library</div>
+    <h1 class="display" data-i18n="lib.title">Your words.</h1>
     <div class="lib-tools">
-      <input id="libSearch" type="search" placeholder="Rechercher un mot, une traduction, une chanson…">
-      <button id="export" class="btn" type="button">Exporter CSV (Anki)</button>
+      <input id="libSearch" type="search" placeholder="Search a word, a translation, a song…" data-i18n-ph="lib.search">
+      <button id="export" class="btn" type="button" data-i18n="lib.export">Export CSV (Anki)</button>
     </div>
-    <p class="small hinttext">Survolez un mot pour voir la phrase de la chanson dont il est tiré.</p>
+    <p class="small hinttext" data-i18n="lib.hint">Hover a word to see the line of the song it comes from.</p>
     <ul id="libList" class="lib"></ul>
     <p id="libEmpty" class="small" hidden></p>
   </main>
 
-  <footer class="foot"><a href="confidentialite.html">Confidentialité</a> · Lyrics Learn n’est pas affilié à Genius. Les paroles appartiennent à leurs auteurs et sont affichées pour l’apprentissage. Genius est une marque de Genius Media Group Inc.</footer>
+  <footer class="foot"><a href="privacy.html" data-i18n="foot.priv">Privacy</a><span data-i18n="foot.text"> · Lyrics Learn is not affiliated with Genius. Lyrics belong to their authors and are shown for learning purposes. Genius is a trademark of Genius Media Group Inc.</span></footer>
 
   <dialog id="songsDlg" class="dlg">
-    <button class="x" id="songsX" type="button" aria-label="Fermer">✕</button>
-    <div class="label">Ajouter</div>
-    <h2>Nouvelle chanson</h2>
-    <p class="src">Paroles via <a class="gbadge" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a></p>
+    <button class="x" id="songsX" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
+    <div class="label" data-i18n="dlg.add">Add</div>
+    <h2 data-i18n="dlg.new">New song</h2>
+    <p class="src"><span data-i18n="dlg.via">Lyrics via</span> <a class="gbadge" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a></p>
     <form id="searchForm">
-      <input id="q" type="search" placeholder="Titre, artiste… ou lien Genius" autocomplete="off" required>
-      <button class="btn solid">Rechercher</button>
+      <input id="q" type="search" placeholder="Title, artist… or Genius link" data-i18n-ph="dlg.q" autocomplete="off" required>
+      <button class="btn solid" data-i18n="dlg.search">Search</button>
     </form>
     <ul id="hits" class="hits"></ul>
     <details id="manual">
-      <summary>Coller des paroles à la main</summary>
-      <input id="mTitle" placeholder="Titre">
-      <input id="mArtist" placeholder="Artiste">
-      <textarea id="mLyrics" rows="6" placeholder="Paroles…"></textarea>
-      <button id="mGo" class="btn" type="button">Utiliser ces paroles</button>
+      <summary data-i18n="dlg.manual">Paste lyrics manually</summary>
+      <input id="mTitle" placeholder="Title" data-i18n-ph="dlg.title">
+      <input id="mArtist" placeholder="Artist" data-i18n-ph="dlg.artist">
+      <textarea id="mLyrics" rows="6" placeholder="Lyrics…" data-i18n-ph="dlg.lyrics"></textarea>
+      <button id="mGo" class="btn" type="button" data-i18n="dlg.use">Use these lyrics</button>
     </details>
     <p id="status" class="status" role="status"></p>
-    <div class="label songs-label">Mes chansons</div>
+    <div class="label songs-label" data-i18n="dlg.mine">My songs</div>
     <ul id="songList" class="songs"></ul>
   </dialog>
 

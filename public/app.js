@@ -1,3 +1,4 @@
+import { t, getLang, setLang, applyStatic } from './i18n.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RTL = new Set(['ar', 'he', 'fa', 'ur']);
@@ -5,8 +6,9 @@ const WORD_RE = /[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}]+)*/gu;
 const norm = (w) => w.toLowerCase().normalize('NFC').replace(/[֑-ׇ]/g, '');
 
 // ---------- état ----------
-let state = { songs: {}, library: [], target: 'fr', current: null };
-try { Object.assign(state, JSON.parse(localStorage.getItem('ll_state') || '{}')); } catch {}
+let state = { songs: {}, library: [], target: 'en', current: null };
+let firstVisit = true;
+try { const raw = localStorage.getItem('ll_state'); if (raw) { firstVisit = false; Object.assign(state, JSON.parse(raw)); } } catch {}
 const save = () => { try { localStorage.setItem('ll_state', JSON.stringify(state)); } catch {} };
 const song = () => state.songs[state.current];
 const songsDlg = $('#songsDlg');
@@ -14,7 +16,7 @@ const songsDlg = $('#songsDlg');
 async function api(path, body) {
   const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : undefined);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(String(data.error || `Erreur ${res.status}`).replace(/Gemini|DeepL/gi, 'le moteur de traduction'));
+  if (!res.ok) throw new Error(String(data.error || `${t('common.error')} ${res.status}`).replace(/Gemini|DeepL/gi, t('engine.name')));
   return data;
 }
 const setStatus = (m, err) => { const s = $('#status'); s.textContent = m; s.classList.toggle('err', !!err); };
@@ -22,6 +24,8 @@ const setStatus = (m, err) => { const s = $('#status'); s.textContent = m; s.cla
 // ---------- langues ----------
 async function initLanguages() {
   const langs = await api('/api/languages');
+  // première visite : langue de traduction = langue du navigateur si elle existe, sinon l'anglais
+  if (firstVisit) { const nav = String(navigator.language || 'en'); const c = langs[nav] ? nav : langs[nav.slice(0, 2)] ? nav.slice(0, 2) : 'en'; state.target = c; }
   $('#target').innerHTML = Object.entries(langs).map(([k, v]) => `<option value="${k}">${esc(v)}</option>`).join('');
   $('#target').value = state.target;
 }
@@ -166,9 +170,9 @@ function render() {
   if (!s) { popCtx = null; activeLine = null; return; }
   $('#tip1').hidden = tipSeen;
   $('#sTitle').textContent = s.title;
-  $('#sArtist').textContent = ['En cours', s.artist].filter(Boolean).join(' / ');
-  $('#sEngine').textContent = !s.translating && s.engine === 'google' && geminiOn ? 'Traduction simplifiée : le moteur principal est momentanément indisponible.' : '';
-  $('#sSrc').innerHTML = /^https:\/\/genius\.com\//i.test(s.url || '') ? `Paroles sur <a class="gbadge" href="${esc(s.url)}" target="_blank" rel="noopener"><img src="genius-logo.svg" alt="Genius"></a>` : '';
+  $('#sArtist').textContent = [t('kicker.now'), s.artist].filter(Boolean).join(' / ');
+  $('#sEngine').textContent = !s.translating && s.engine === 'google' && geminiOn ? t('engine.simplified') : '';
+  $('#sSrc').innerHTML = /^https:\/\/genius\.com\//i.test(s.url || '') ? `${t('src.lyricsOn')} <a class="gbadge" href="${esc(s.url)}" target="_blank" rel="noopener"><img src="genius-logo.svg" alt="Genius"></a>` : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
   $('#lyrics').className = 'lyrics' + ($('#showTr').checked ? '' : ' hide-tr');
   $('#lyrics').innerHTML = s.lines.map((l, i) => {
@@ -191,9 +195,9 @@ function renderGoal() {
   $('#progText').textContent = ws.length ? `${done} / ${ws.length}` : '';
   const pad = (3 - ((ws.length + 1) % 3)) % 3;
   $('#goalGrid').innerHTML = ws.map((w, i) => `<div class="cell${w.done ? ' done' : ''}" data-i="${i}" role="button" tabindex="0" title="${esc(w.note || '')}">
-      <button class="rm" data-rm="${i}" aria-label="Retirer">✕</button>
+      <button class="rm" data-rm="${i}" aria-label="${t('common.remove')}">✕</button>
       <b class="cw"><bdi>${esc(w.word)}</bdi></b><span class="ct">${esc(w.tr || '…')}</span></div>`).join('')
-    + `<button class="cell cta" data-act="suggest" aria-label="Suggérer des mots"><span>+</span><small>${ws.length ? 'Autres mots' : 'Suggérer'}</small></button>`
+    + `<button class="cell cta" data-act="suggest" aria-label="${t('goal.suggestAria')}"><span>+</span><small>${ws.length ? t('goal.more') : t('goal.suggest')}</small></button>`
     + '<div class="cell empty"></div>'.repeat(pad);
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
 }
@@ -201,25 +205,25 @@ function renderGoal() {
 function renderSongList() {
   const list = Object.values(state.songs).sort((a, b) => b.added - a.added);
   $('#songList').innerHTML = list.length ? list.map((s) => `<li data-id="${s.id}" class="${s.id === state.current ? 'on' : ''}">
-    <span><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></span><button data-del="${s.id}" title="Supprimer" aria-label="Supprimer">✕</button></li>`).join('')
-    : '<li class="small">Aucune chanson pour l’instant.</li>';
+    <span><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></span><button data-del="${s.id}" title="${t('common.delete')}" aria-label="${t('common.delete')}">✕</button></li>`).join('')
+    : `<li class="small">${t('songs.empty')}</li>`;
 }
 
 // ---------- accueil ----------
 function renderHome() {
   const songs = Object.values(state.songs).sort((a, b) => b.added - a.added);
   const learned = songs.reduce((n, x) => n + x.goal.words.filter((w) => w.done).length, 0);
-  $('#stats').innerHTML = [[songs.length, songs.length > 1 ? 'Chansons' : 'Chanson'], [state.library.length, 'Mots enregistrés'], [learned, 'Mots appris']]
+  $('#stats').innerHTML = [[songs.length, songs.length === 1 ? t('stat.song') : t('stat.songs')], [state.library.length, t('stat.saved')], [learned, t('stat.learned')]]
     .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
   $('#homeResume').hidden = !song();
   $('#homeSongs').innerHTML = songs.map((x) => {
     const done = x.goal.words.filter((w) => w.done).length, tot = x.goal.words.length;
     return `<div class="card" data-id="${x.id}" role="button" tabindex="0">
-      <button class="del" data-del="${x.id}" aria-label="Supprimer">✕</button>
-      <div><div class="ct1">${esc(x.artist || 'Chanson')}</div><h3 dir="auto">${esc(x.title)}</h3></div>
-      <div><div class="mini"><span>${tot ? `${done} / ${tot} mots appris` : 'Pas d’objectif'}</span><span>${esc(x.id === state.current ? 'En cours' : '')}</span></div>
+      <button class="del" data-del="${x.id}" aria-label="${t('common.delete')}">✕</button>
+      <div><div class="ct1">${esc(x.artist || t('common.song'))}</div><h3 dir="auto">${esc(x.title)}</h3></div>
+      <div><div class="mini"><span>${tot ? t('card.progress', { done, tot }) : t('card.nogoal')}</span><span>${esc(x.id === state.current ? t('card.current') : '')}</span></div>
         <div class="minibar"><i style="width:${tot ? (done / tot) * 100 : 0}%"></i></div></div></div>`;
-  }).join('') + '<button class="card new" id="homeNew" type="button"><span>+</span><small>Nouvelle chanson</small></button>';
+  }).join('') + '<button class="card new" id="homeNew" type="button"><span>+</span><small>' + t('card.new') + '</small></button>';
 }
 $('#homeSongs').addEventListener('click', async (e) => {
   if (e.target.closest('#homeNew')) return songsDlg.showModal();
@@ -277,7 +281,7 @@ function listenLinks(s) {
 }
 function renderListen() {
   const s = song(); if (!s) return;
-  $('#listen').innerHTML = '<span class="label">Écouter sur</span>' + listenLinks(s)
+  $('#listen').innerHTML = `<span class="label">${t('listen.on')}</span>` + listenLinks(s)
     .map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join('');
 }
 async function loadMedia(s) {
@@ -306,17 +310,17 @@ function renderPlayer() {
   playerKey = key;
   const box = $('#player');
   if (p && !playerEditing) {
-    box.innerHTML = `<div class="pbar"><span class="label">Écouter · ${esc(p.provider)}</span>
-        <button class="link" data-p="change">Changer</button><button class="link" data-p="remove">Retirer</button></div>
+    box.innerHTML = `<div class="pbar"><span class="label">${esc(t('player.listen', { p: p.provider }))}</span>
+        <button class="link" data-p="change">${esc(t('player.change'))}</button><button class="link" data-p="remove">${esc(t('player.remove'))}</button></div>
       <iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${(/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h) ? `height="${/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="Lecteur ${esc(p.provider)}"></iframe>
-      <p class="pnote">Selon le service, l’écoute complète demande d’être connecté à votre compte dans ce navigateur ; sinon un extrait est joué.</p>`;
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>
+      <p class="pnote">${esc(t('player.note'))}</p>`;
   } else if (playerEditing || p) {
-    box.innerHTML = `<form id="playerForm"><input id="playerUrl" type="text" placeholder="Lien Spotify, Apple Music, Deezer, YouTube ou SoundCloud" required autocomplete="off">
-        <button class="btn solid">Ajouter</button><button class="link" type="button" data-p="cancel">Annuler</button></form><p class="perr" id="playerErr" hidden></p>`;
+    box.innerHTML = `<form id="playerForm"><input id="playerUrl" type="text" placeholder="${esc(t('player.ph'))}" required autocomplete="off">
+        <button class="btn solid">${esc(t('player.addBtn'))}</button><button class="link" type="button" data-p="cancel">${esc(t('player.cancel'))}</button></form><p class="perr" id="playerErr" hidden></p>`;
     $('#playerUrl').focus();
   } else {
-    box.innerHTML = '<button class="add" data-p="change">＋ Ajouter un lecteur</button>';
+    box.innerHTML = `<button class="add" data-p="change">${esc(t('player.add'))}</button>`;
   }
 }
 $('#player').addEventListener('click', (e) => {
@@ -330,7 +334,7 @@ $('#player').addEventListener('click', (e) => {
 $('#player').addEventListener('submit', (e) => {
   e.preventDefault();
   const s = song(); const p = parsePlayer($('#playerUrl').value);
-  if (!p) { const er = $('#playerErr'); er.textContent = 'Lien non reconnu. Collez le lien de partage d’un titre (Spotify, Apple Music, Deezer, YouTube, SoundCloud).'; er.hidden = false; return; }
+  if (!p) { const er = $('#playerErr'); er.textContent = t('player.err'); er.hidden = false; return; }
   s.player = { ...p, url: $('#playerUrl').value.trim() }; playerEditing = false; save(); renderPlayer();
 });
 
@@ -348,20 +352,20 @@ function closePop() { popCtx = null; setActiveLine(null); drawPanel(); }
 function drawPanel() {
   const s = song();
   pop.classList.toggle('open', !!popCtx && !!s);
-  if (!popCtx || !s) { pop.innerHTML = '<div class="label">Traduction</div><p class="placeholder">Cliquez un mot dans les paroles, ou sélectionnez plusieurs mots, pour voir sa traduction ici.</p>'; return; }
+  if (!popCtx || !s) { pop.innerHTML = `<div class="label">${esc(t('panel.title'))}</div><p class="placeholder">${esc(t('panel.placeholder'))}</p>`; return; }
   const line = s.lines[popCtx.lineIdx] || { text: '' }, text = popCtx.text;
   const inLib = state.library.some((e) => norm(e.text) === norm(text));
   const inGoal = s.goal.words.some((g) => norm(g.word) === norm(text));
   const single = !/\s/.test(text.trim());
-  pop.innerHTML = `<div class="label"><span>Traduction</span><button id="pClose" aria-label="Fermer">✕</button></div>
+  pop.innerHTML = `<div class="label"><span>${esc(t('panel.title'))}</span><button id="pClose" aria-label="${esc(t('common.close'))}">✕</button></div>
     <div class="wordbig" dir="auto">${esc(text)}</div>
     <div class="wmeta">${popCtx.rm ? esc(popCtx.rm) : ''}</div>
     <p class="def">${popCtx.tr ? esc(popCtx.tr) : '<span class="dots">…</span>'}</p>
-    ${popCtx.note ? `<p class="note"><b>Note</b>${esc(popCtx.note)}</p>` : ''}
-    <p class="ctx" dir="auto">« ${esc(line.text)} »</p>
+    ${popCtx.note ? `<p class="note"><b>${esc(t('panel.note'))}</b>${esc(popCtx.note)}</p>` : ''}
+    <p class="ctx" dir="auto">“${esc(line.text)}”</p>
     ${line.tr ? `<p class="ctxtr">${esc(line.tr)}</p>` : ''}
-    <div class="acts"><button class="btn solid" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? 'Enregistré ✓' : 'Enregistrer'}</button>
-      ${single ? `<button class="btn" id="pGoal">${inGoal ? 'Retirer de l’objectif' : 'Ajouter à l’objectif'}</button>` : ''}</div>`;
+    <div class="acts"><button class="btn solid" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? t('panel.saved') : t('panel.save')}</button>
+      ${single ? `<button class="btn" id="pGoal">${inGoal ? t('panel.goalRemove') : t('panel.goalAdd')}</button>` : ''}</div>`;
 }
 
 async function openPop(text, lineIdx) {
@@ -498,11 +502,11 @@ function renderLibrary() {
   const q = norm($('#libSearch').value || '');
   const items = state.library.filter((e) => !q || norm(`${e.text} ${e.tr} ${e.title} ${e.artist} ${e.sentence}`).includes(q));
   $('#libEmpty').hidden = state.library.length > 0;
-  $('#libEmpty').textContent = 'Aucun mot enregistré. Ouvrez une chanson, cliquez sur un mot puis « Enregistrer ».';
+  $('#libEmpty').textContent = t('lib.empty');
   $('#libList').innerHTML = items.map((e) => `<li data-id="${e.id}">
     <span class="e"><bdi>${esc(e.text)}</bdi></span>
     <span class="m">${esc(e.tr)}<div class="s">${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
-    <button data-del="${e.id}" title="Supprimer">✕</button></li>`).join('');
+    <button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`).join('');
 }
 $('#libSearch').oninput = renderLibrary;
 $('#libList').addEventListener('click', (e) => {
@@ -512,7 +516,7 @@ $('#libList').addEventListener('click', (e) => {
 $('#export').onclick = () => {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
   const csv = state.library.map((e) => [e.text, e.tr, e.sentence, e.sentenceTr, `${e.title} - ${e.artist}`].map(q).join(';')).join('\n');
-  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })), download: 'bibliotheque-mots.csv' });
+  const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })), download: t('csv.name') });
   a.click(); URL.revokeObjectURL(a.href);
 };
 
@@ -522,7 +526,7 @@ function hideTip() { tip.hidden = true; }
 function showTip(entry, x, y) {
   const hi = esc(entry.sentence).replace(esc(entry.text), (m) => `<mark>${m}</mark>`);
   const hl = hi.includes('<mark>') ? hi : esc(entry.sentence).replace(new RegExp(esc(entry.text).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'), (m) => `<mark>${m}</mark>`);
-  tip.innerHTML = `<div class="src" dir="auto">« ${hl} »</div>${entry.sentenceTr ? `<div class="meta">${esc(entry.sentenceTr)}</div>` : ''}
+  tip.innerHTML = `<div class="src" dir="auto">“${hl}”</div>${entry.sentenceTr ? `<div class="meta">${esc(entry.sentenceTr)}</div>` : ''}
     <div class="meta">♪ ${esc(entry.title)} — ${esc(entry.artist)}</div>`;
   tip.hidden = false;
   const w = tip.offsetWidth, h = tip.offsetHeight;
@@ -578,7 +582,7 @@ function cleanPasted(raw) {
 }
 async function useText(raw, meta = {}) {
   const { title, lyrics } = cleanPasted(raw);
-  if (!lyrics) { setStatus('Rien à importer : copiez d’abord les paroles.', true); return false; }
+  if (!lyrics) { setStatus(t('imp.nothing'), true); return false; }
   const parts = title.split(/\s[–—-]\s/);
   const [artist, name] = parts.length > 1 ? [parts[0], parts.slice(1).join(' - ')] : ['', title];
   let t = meta.title, ar = meta.artist;
@@ -589,7 +593,7 @@ async function useText(raw, meta = {}) {
     t = name;
   }
   await addSong({
-    title: t || $('#mTitle').value.trim() || name || 'Sans titre',
+    title: t || $('#mTitle').value.trim() || name || t('common.untitled'),
     artist: ar || $('#mArtist').value.trim() || artist,
     url: meta.url || '', lyrics, gid: meta.id || ''
   });
@@ -613,15 +617,15 @@ $('#hits').addEventListener('click', (ev) => { const li = ev.target.closest('li'
 
 async function runSearch(q, live) {
   const seq = ++searchSeq;
-  setStatus(live ? '' : 'Recherche…');
+  setStatus(live ? '' : t('search.searching'));
   try {
     const r = await api('/api/search?q=' + encodeURIComponent(q));
     if (seq !== searchSeq) return; // une recherche plus récente a pris le relais
-    if (r.needsToken) return setStatus('Recherche non configurée : ajoutez GENIUS_TOKEN (voir README). Vous pouvez coller un lien Genius à la place.', true);
+    if (r.needsToken) return setStatus(t('search.notConfigured'), true);
     renderHits(r.hits);
-    setStatus(r.hits.length ? '' : 'Aucun résultat.', !r.hits.length);
+    setStatus(r.hits.length ? '' : t('search.none'), !r.hits.length);
   } catch (err) {
-    if (seq === searchSeq) setStatus(err.message + ' En attendant, vous pouvez coller directement un lien Genius dans ce champ.', true);
+    if (seq === searchSeq) setStatus(err.message + t('search.fallback'), true);
   }
 }
 
@@ -653,23 +657,23 @@ let watcher = null;
 function openImport(h) {
   if (songsDlg.open) songsDlg.close();
   const label = [h.title, h.artist].filter(Boolean).join(' — ');
-  dlg.innerHTML = `<button class="x" id="dX" aria-label="Fermer">✕</button>
-    <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="Ouvrir sur Genius"><img src="genius-logo.svg" alt="Genius"></a></h2><div class="muted small">Importer les paroles en 3 gestes</div>
+  dlg.innerHTML = `<button class="x" id="dX" aria-label="${esc(t('common.close'))}">✕</button>
+    <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="${esc(t('imp.openOn'))}"><img src="genius-logo.svg" alt="Genius"></a></h2><div class="muted small">${esc(t('imp.sub'))}</div>
     <ol>
-      <li><div><button class="primary" id="dOpen">Ouvrir la page Genius</button>
-        <div class="muted small" style="margin-top:4px">Elle s’ouvre dans une petite fenêtre à côté de l’app, qui reste ouverte.</div></div></li>
-      <li><div>Dans la fenêtre Genius : cliquez sur le texte, puis <kbd>${MOD}</kbd> + <kbd>A</kbd> puis <kbd>${MOD}</kbd> + <kbd>C</kbd>
+      <li><div><button class="primary" id="dOpen">${esc(t('imp.openGenius'))}</button>
+        <div class="muted small" style="margin-top:4px">${esc(t('imp.openNote'))}</div></div></li>
+      <li><div>${esc(t('imp.step2'))} <kbd>${MOD}</kbd> + <kbd>A</kbd> ${esc(t('imp.then'))} <kbd>${MOD}</kbd> + <kbd>C</kbd>
         <div class="demo" aria-hidden="true"><div class="bar"><i></i><i></i><i></i></div>
-          <div class="page"><span>אולי אולא, יהיה לי רע</span><span>יהיה לי טוב</span><span>הכל יכול לקרות</span><div class="sel"></div><div class="toast">Copié ✓</div></div>
+          <div class="page"><span>אולי אולא, יהיה לי רע</span><span>יהיה לי טוב</span><span>הכל יכול לקרות</span><div class="sel"></div><div class="toast">${esc(t('imp.copied'))}</div></div>
           <div class="keys"><kbd>${MOD} A</kbd><kbd>${MOD} C</kbd></div></div></div></li>
-      <li><div id="dState">Revenez dans l’app : les paroles copiées sont détectées automatiquement.
-        <div style="margin-top:8px"><button class="secondary" id="dPaste">📋 Coller les paroles copiées</button></div></div></li>
+      <li><div id="dState">${esc(t('imp.step3'))}
+        <div style="margin-top:8px"><button class="secondary" id="dPaste">${esc(t('imp.paste'))}</button></div></div></li>
     </ol>`;
   const state$ = () => $('#dState');
   let popup = null, done = false;
   const finish = async (raw) => {
     if (done) return; done = true;
-    state$().innerHTML = '<span class="ok">Paroles trouvées, import en cours…</span>';
+    state$().innerHTML = `<span class="ok">${esc(t('imp.found'))}</span>`;
     if (await useText(raw, h)) { stop(); dlg.close(); if (popup && !popup.closed) popup.close(); } else done = false;
   };
   const tryClipboard = async (auto) => {
@@ -677,14 +681,14 @@ function openImport(h) {
       const txt = await navigator.clipboard.readText();
       const looksRight = norm(txt).includes(norm(h.title)) && txt.length > 60;
       if (looksRight || (!auto && txt.trim())) return finish(txt);
-      if (!auto) state$().insertAdjacentHTML('beforeend', '<div class="status err">Le presse-papiers ne contient pas les paroles. Refaites ⌘A puis ⌘C dans la fenêtre Genius.</div>');
-    } catch { if (!auto) state$().insertAdjacentHTML('beforeend', '<div class="status err">Accès au presse-papiers refusé : autorisez-le, ou collez dans « Coller à la main ».</div>'); }
+      if (!auto) state$().insertAdjacentHTML('beforeend', `<div class="status err">${esc(t('imp.noLyrics'))}</div>`);
+    } catch { if (!auto) state$().insertAdjacentHTML('beforeend', `<div class="status err">${esc(t('imp.denied'))}</div>`); }
   };
   const onFocus = () => setTimeout(() => tryClipboard(true), 250);
   const stop = () => { window.removeEventListener('focus', onFocus); clearInterval(watcher); };
   $('#dOpen').onclick = () => {
     popup = window.open(h.url, 'genius', 'width=980,height=820');
-    if (!popup) state$().insertAdjacentHTML('afterbegin', `<div class="status err">Fenêtre bloquée : <a href="${esc(h.url)}" target="_blank" rel="noopener">ouvrir Genius dans un onglet</a>, puis revenez ici.</div>`);
+    if (!popup) state$().insertAdjacentHTML('afterbegin', `<div class="status err">${esc(t('imp.blockedPre'))}<a href="${esc(h.url)}" target="_blank" rel="noopener">${esc(t('imp.blockedLink'))}</a>${esc(t('imp.blockedPost'))}</div>`);
   };
   $('#dPaste').onclick = () => tryClipboard(false);
   $('#dX').onclick = () => { stop(); dlg.close(); };
@@ -699,7 +703,7 @@ $('#mLyrics').addEventListener('paste', (e) => {
 });
 $('#mGo').onclick = async () => {
   const lyrics = $('#mLyrics').value.trim();
-  if (!lyrics) return setStatus('Collez des paroles d’abord.', true);
+  if (!lyrics) return setStatus(t('manual.empty'), true);
   await useText(lyrics);
   $('#mLyrics').value = '';
 };
@@ -714,6 +718,12 @@ try {
   geminiOn = !!st.gemini;
 } catch {}
 await initLanguages();
+applyStatic();
 drawPanel();
 render();
 showTab('home');
+document.querySelectorAll('[data-lang]').forEach((b) => b.onclick = () => {
+  setLang(b.dataset.lang);
+  playerKey = '';          // reconstruit le lecteur avec les nouveaux libellés
+  render(); renderHome(); drawPanel();
+});

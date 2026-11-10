@@ -20,16 +20,16 @@ function srcCode(c) {
 
 async function post(body) {
   const res = await fetch(`${host()}/v2/translate`, { method: 'POST', headers: headers(), body: JSON.stringify(body), signal: AbortSignal.timeout(20000) });
-  if (res.status === 403) throw new Error('DeepL : clé refusée (403)');
-  if (res.status === 456) throw new Error('DeepL : quota mensuel atteint (456)');
-  if (res.status === 429) throw new Error('DeepL : trop de requêtes (429)');
-  if (!res.ok) { const e = new Error(`DeepL indisponible (${res.status})`); e.status = res.status; throw e; }
+  if (res.status === 403) throw new Error('DeepL: key rejected (403)');
+  if (res.status === 456) throw new Error('DeepL: monthly quota reached (456)');
+  if (res.status === 429) throw new Error('DeepL: too many requests (429)');
+  if (!res.ok) { const e = new Error(`DeepL unavailable (${res.status})`); e.status = res.status; throw e; }
   return res.json();
 }
 
 // Renvoie [{ text, source }] dans le même ordre que `texts`.
 export async function deeplTranslate(texts, target, source = 'auto', context = '') {
-  if (!deeplSupports(target)) throw new Error('Langue non prise en charge par DeepL');
+  if (!deeplSupports(target)) throw new Error('Language not supported by DeepL');
   const out = [];
   for (let i = 0; i < texts.length; i += 50) {
     const part = texts.slice(i, i + 50);
@@ -38,7 +38,7 @@ export async function deeplTranslate(texts, target, source = 'auto', context = '
     if (context) body.context = context.slice(0, 500);
     let data;
     try { data = await post(body); } catch (e) { if (context && e.status === 400) { delete body.context; data = await post(body); } else throw e; }
-    if (!Array.isArray(data.translations) || data.translations.length !== part.length) throw new Error('Réponse DeepL inattendue');
+    if (!Array.isArray(data.translations) || data.translations.length !== part.length) throw new Error('Unexpected DeepL response');
     data.translations.forEach((t) => out.push({ text: String(t.text || '').trim(), source: String(t.detected_source_language || '').toLowerCase() }));
   }
   return out;
@@ -48,7 +48,7 @@ export async function deeplCheck() {
   if (!deeplOn()) return { configured: false };
   try {
     const res = await fetch(`${host()}/v2/usage`, { headers: headers(), signal: AbortSignal.timeout(10000) });
-    if (!res.ok) return { configured: true, ok: false, error: `DeepL a répondu ${res.status}` };
+    if (!res.ok) return { configured: true, ok: false, error: `DeepL responded ${res.status}` };
     const u = await res.json();
     return { configured: true, ok: true, used: u.character_count, limit: u.character_limit };
   } catch (e) { return { configured: true, ok: false, error: e.message }; }

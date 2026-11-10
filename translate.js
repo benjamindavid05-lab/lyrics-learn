@@ -15,7 +15,7 @@ export const LANGUAGES = {
 };
 
 export async function translate(text, target, source = 'auto') {
-  if (!LANGUAGES[target]) throw new Error('Langue cible non supportée');
+  if (!LANGUAGES[target]) throw new Error('Unsupported target language');
   const t = String(text).trim();
   if (!t) return { text: '', translit: '', source: source };
   const key = `${source}|${target}|${t}`;
@@ -27,7 +27,7 @@ export async function translate(text, target, source = 'auto') {
   for (let i = 0; i < 3; i++) {
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-      if (!res.ok) throw new Error(`Traduction indisponible (${res.status})`);
+      if (!res.ok) throw new Error(`Translation unavailable (${res.status})`);
       const data = await res.json();
       const segs = data[0] || [];
       const out = {

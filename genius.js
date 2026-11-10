@@ -77,7 +77,7 @@ export function isGeniusUrl(u) {
 }
 
 export async function fetchGenius(u) {
-  if (!isGeniusUrl(u)) throw new Error('Lien invalide : il faut une URL genius.com');
+  if (!isGeniusUrl(u)) throw new Error('Invalid link: a genius.com URL is required');
   const res = await fetch(u, {
     headers: {
       'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36',
@@ -87,8 +87,8 @@ export async function fetchGenius(u) {
     redirect: 'follow',
     signal: AbortSignal.timeout(15000)
   });
-  if (!res.ok) throw new Error(`Genius a répondu ${res.status}. Collez les paroles manuellement.`);
+  if (!res.ok) throw new Error(`Genius responded ${res.status}. Paste the lyrics manually.`);
   const song = parseGenius(await res.text());
-  if (!song) throw new Error('Paroles introuvables sur cette page. Collez-les manuellement.');
+  if (!song) throw new Error('Lyrics not found on this page. Paste them manually.');
   return song;
 }

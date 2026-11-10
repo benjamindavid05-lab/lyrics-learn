@@ -18,7 +18,7 @@ try { // mini chargeur .env (GENIUS_TOKEN=...)
   }
   console.log(`.env lu : ${found.length ? found.join(', ') : 'aucune clé trouvée'}`);
   if (/^\{\\rtf/.test(raw.trim())) console.log('⚠ .env est en « texte enrichi » (TextEdit) : Format > Convertir au format texte, puis enregistrez.');
-} catch { console.log('Pas de fichier .env : utilisation des variables d’environnement.'); }
+} catch { console.log('No .env file: using environment variables.'); }
 const mediaCache = new Map();
 const searchCache = new Map(); // évite de rappeler Genius pour la même recherche
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
@@ -47,14 +47,14 @@ function rateLimit(req) {
   if (!HOSTED) return null;
   const now = Date.now(), today = new Date().toISOString().slice(0, 10);
   if (globalCount.day !== today) globalCount = { day: today, n: 0 };
-  if (globalCount.n >= LIM.global) return 'Le service a atteint sa limite quotidienne. Réessayez demain.';
+  if (globalCount.n >= LIM.global) return 'The service has reached its daily limit. Please try again tomorrow.';
   const ip = clientIp(req);
   let b = buckets.get(ip);
   if (!b) { b = { hStart: now, h: 0, day: today, d: 0 }; buckets.set(ip, b); }
   if (now - b.hStart > 3600e3) { b.hStart = now; b.h = 0; }
   if (b.day !== today) { b.day = today; b.d = 0; }
-  if (b.h >= LIM.hour) return `Limite horaire atteinte : réessayez dans ${Math.max(1, Math.ceil((3600e3 - (now - b.hStart)) / 60e3))} min.`;
-  if (b.d >= LIM.day) return 'Limite quotidienne atteinte : réessayez demain.';
+  if (b.h >= LIM.hour) return `Hourly limit reached: try again in ${Math.max(1, Math.ceil((3600e3 - (now - b.hStart)) / 60e3))} min.`;
+  if (b.d >= LIM.day) return 'Daily limit reached: try again tomorrow.';
   b.h++; b.d++; globalCount.n++;
   if (buckets.size > 5000) for (const [k, x] of buckets) if (now - x.hStart > 7200e3) buckets.delete(k);
   return null;
@@ -84,8 +84,8 @@ async function api(req, res, url) {
       if (!token) return json(res, 200, { configured: false });
       try {
         const r = await fetch('https://api.genius.com/search?q=test', { headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(10000) });
-        return json(res, 200, { configured: true, ok: r.ok, status: r.status, longueurJeton: token.length,
-          aide: r.ok ? 'Le jeton fonctionne.' : r.status === 401 ? 'Jeton refusé : générez un « Client Access Token » sur genius.com/api-clients (pas le Client ID ni le Client Secret).' : 'Genius ne répond pas normalement.' });
+        return json(res, 200, { configured: true, ok: r.ok, status: r.status, tokenLength: token.length,
+          help: r.ok ? 'The token works.' : r.status === 401 ? 'Token rejected: generate a “Client Access Token” on genius.com/api-clients (not the Client ID or the Client Secret).' : 'Genius is not responding normally.' });
       } catch (e) { return json(res, 200, { configured: true, ok: false, error: e.message }); }
     }
     if (url.pathname === '/api/deepl-check') return json(res, 200, await deeplCheck());
@@ -100,7 +100,7 @@ async function api(req, res, url) {
       const r = await fetch('https://api.genius.com/search?per_page=8&q=' + encodeURIComponent(q), {
         headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(10000)
       });
-      if (!r.ok) throw new Error(r.status === 401 ? 'Jeton Genius refusé : il faut le « Client Access Token » (voir /api/genius-check).' : `Recherche Genius indisponible (${r.status})`);
+      if (!r.ok) throw new Error(r.status === 401 ? 'Genius token rejected: use the “Client Access Token” (see /api/genius-check).' : `Genius search unavailable (${r.status})`);
       const data = await r.json();
       const hits = (data.response?.hits || []).filter((h) => h.type === 'song').map(({ result: x }) => ({
         id: x.id, title: x.title, artist: x.primary_artist?.name || '', url: x.url, thumb: x.song_art_image_thumbnail_url || ''
@@ -117,7 +117,7 @@ async function api(req, res, url) {
       if (url.pathname === '/api/translate-lines') {
         const lines = Array.isArray(b.lines) ? b.lines.slice(0, 600).map(String) : [];
         const ctx = Array.isArray(b.context) ? b.context.slice(0, 600).map(String) : [];
-        if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
+        if (!LANGUAGES[b.target]) throw new Error('Unsupported target language');
         let warning = '';
         if (b.fast !== true && hasLLM()) {
           try {
@@ -135,7 +135,7 @@ async function api(req, res, url) {
         return json(res, 200, { results, source: results.find((r) => r.source)?.source || '', engine: 'google', warning });
       }
       if (url.pathname === '/api/suggest-words') {
-        if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
+        if (!LANGUAGES[b.target]) throw new Error('Unsupported target language');
         if (!hasLLM()) return json(res, 200, { words: null });
         try {
           const words = await suggestVocab(Array.isArray(b.lines) ? b.lines.slice(0, 400).map(String) : [], LANGUAGES[b.target], b.source || 'auto', Math.min(Number(b.n) || 8, 25), Array.isArray(b.exclude) ? b.exclude.slice(0, 100).map(String) : []);
@@ -144,7 +144,7 @@ async function api(req, res, url) {
       }
       if (url.pathname === '/api/translate-words') {
         const items = Array.isArray(b.items) ? b.items.slice(0, 60).map((x) => ({ text: String(x.text), context: String(x.context || '') })) : [];
-        if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
+        if (!LANGUAGES[b.target]) throw new Error('Unsupported target language');
         if (b.fast !== true && hasLLM()) {
           try { return json(res, 200, { results: await translateItems(items, LANGUAGES[b.target], b.source || 'auto'), engine: 'gemini' }); } catch { /* repli */ }
         }
@@ -188,16 +188,19 @@ function authorized(req) {
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok ' + String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7)); } // version en ligne, visible sans mot de passe
-  if (!authorized(req)) { res.writeHead(401, { 'www-authenticate': 'Basic realm="Lyrics Learn", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' }); return res.end('Mot de passe requis'); }
+  if (!authorized(req)) { res.writeHead(401, { 'www-authenticate': 'Basic realm="Lyrics Learn", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' }); return res.end('Password required'); }
   if (url.pathname.startsWith('/api/')) return api(req, res, url);
-  const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
+  const rel = url.pathname === '/' ? 'index.html' : (url.pathname === '/confidentialite.html' ? 'privacy.html' : decodeURIComponent(url.pathname).replace(/^\/+/, ''));
   const file = path.resolve(root, rel);
   if (!file.startsWith(root + path.sep)) { res.writeHead(403); return res.end(); }
   try {
     let data = await fs.readFile(file);
-    if (path.basename(file) === 'confidentialite.html') {
-      const contact = process.env.CONTACT_EMAIL ? `<a href="mailto:${process.env.CONTACT_EMAIL.replace(/[^A-Za-z0-9@._+-]/g, '')}">${process.env.CONTACT_EMAIL.replace(/[^A-Za-z0-9@._+-]/g, '')}</a>` : 'le propriétaire du site (coordonnées à renseigner par la variable CONTACT_EMAIL)';
-      data = Buffer.from(data.toString().replaceAll('{{CONTACT}}', contact));
+    if (path.basename(file) === 'privacy.html') {
+      const mail = String(process.env.CONTACT_EMAIL || '').replace(/[^A-Za-z0-9@._+-]/g, '');
+      const link = mail ? `<a href="mailto:${mail}">${mail}</a>` : '';
+      data = Buffer.from(data.toString()
+        .replaceAll('{{CONTACT_EN}}', link || 'the site owner (contact details to be set with the CONTACT_EMAIL variable)')
+        .replaceAll('{{CONTACT_FR}}', link || 'le propriétaire du site (coordonnées à renseigner par la variable CONTACT_EMAIL)'));
     }
     res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
     res.end(data);
