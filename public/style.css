@@ -289,3 +289,14 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 .uilang button+button{border-left:1px solid var(--ink)}
 .uilang button.active{background:var(--ink);color:var(--bg)}
 @media(max-width:960px){.uilang{order:2}}
+
+/* onglets des lecteurs intégrés */
+.ptabs{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-bottom:10px}
+.ptabs .label{margin-right:6px;color:var(--dim)}
+.ptab{border:1px solid var(--ink);background:transparent;color:var(--ink);padding:8px 12px;font:600 11px/1 var(--sans);letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+.ptab:hover:not(:disabled):not(.on){background:var(--card)}
+.ptab.on{background:var(--ink);color:var(--bg)}
+.ptab:disabled{opacity:.32;cursor:not-allowed;border-style:dashed}
+.pspace{flex:1}
+.pfind{margin-left:8px}
+#pform form{margin-top:8px}

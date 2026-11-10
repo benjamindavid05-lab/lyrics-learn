@@ -183,7 +183,6 @@ function render() {
     return `<div class="ln${activeLine === i ? ' active' : ''}" data-i="${i}"><div class="orig" dir="auto">${wordsHtml(l.text, i)}</div>${tr}</div>`;
   }).join('');
   renderPlayer();
-  renderListen();
   renderGoal();
 }
 
@@ -263,79 +262,118 @@ function parsePlayer(input) {
   return null;
 }
 
-// ---------- écouter ailleurs : liens Spotify, Apple Music, Deezer, YouTube, SoundCloud ----------
+// ---------- lecteurs intégrés : Spotify, Apple Music, Deezer, YouTube, SoundCloud ----------
 const HOSTS = { spotify: /(^|\.)spotify\.com$/, youtube: /(^|\.)(youtube\.com|youtu\.be)$/, soundcloud: /(^|\.)soundcloud\.com$/ };
 function safeLink(u, kind) {
   try { const x = new URL(u); return /^https?:$/.test(x.protocol) && HOSTS[kind].test(x.hostname) ? x.href : ''; } catch { return ''; }
 }
-function listenLinks(s) {
-  const q = encodeURIComponent([s.artist, s.title].filter(Boolean).join(' ').trim());
-  const m = s.media || {};
-  return [
-    ['Spotify', safeLink(m.spotify, 'spotify') || `https://open.spotify.com/search/${q}`],
-    ['Apple Music', `https://music.apple.com/search?term=${q}`],
-    ['Deezer', `https://www.deezer.com/search/${q}`],
-    ['YouTube', safeLink(m.youtube, 'youtube') || `https://www.youtube.com/results?search_query=${q}`],
-    ['SoundCloud', safeLink(m.soundcloud, 'soundcloud') || `https://soundcloud.com/search?q=${q}`]
-  ];
-}
-function renderListen() {
-  const s = song(); if (!s) return;
-  $('#listen').innerHTML = `<span class="label">${t('listen.on')}</span>` + listenLinks(s)
-    .map(([n, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener noreferrer">${esc(n)}</a>`).join('');
-}
-async function loadMedia(s) {
-  if (!s || !s.gid) return;
-  try {
-    const { media } = await api('/api/song-media?id=' + encodeURIComponent(s.gid));
-    if (!media || !Object.values(media).some(Boolean)) return;
-    s.media = media;
-    // si l'utilisateur n'a pas choisi de lecteur, on en propose un (Spotify, sinon YouTube)
-    if (!s.player) {
-      for (const u of [safeLink(media.spotify, 'spotify'), safeLink(media.youtube, 'youtube')]) {
-        const p = u && parsePlayer(u); if (p) { s.player = { ...p, url: u, auto: true }; break; }
-      }
-    }
-    save();
-    if (state.current === s.id) { renderPlayer(); renderListen(); }
-  } catch { /* pas bloquant */ }
-}
+const SERVICES = [['spotify', 'Spotify'], ['apple', 'Apple Music'], ['deezer', 'Deezer'], ['youtube', 'YouTube'], ['soundcloud', 'SoundCloud']];
+const SVC_BY_NAME = { Spotify: 'spotify', 'Apple Music': 'apple', Deezer: 'deezer', YouTube: 'youtube', SoundCloud: 'soundcloud' };
+let pref = '';
+try { pref = localStorage.getItem('ll_pp') || ''; } catch {}
 
-let playerKey = '', playerEditing = false;
+function migratePlayers(s) {
+  if (!s.players) s.players = {};
+  if (s.player) { // ancien format : un seul lecteur
+    const k = SVC_BY_NAME[s.player.provider];
+    if (k && !s.players[k]) s.players[k] = s.player;
+    if (k && !s.playerPref) s.playerPref = k;
+    delete s.player;
+  }
+}
+// Ajoute un lecteur à partir d'un lien (toujours filtré par parsePlayer : seuls les 5 services sont acceptés).
+function setPlayer(s, url, overwrite = false) {
+  const p = parsePlayer(url); const k = p && SVC_BY_NAME[p.provider];
+  if (!k) return '';
+  if (!overwrite && s.players[k]) return k;
+  s.players[k] = { ...p, url }; return k;
+}
+function pickPlayer(s) {
+  if (s.playerPref && s.players[s.playerPref]) return;
+  const have = SERVICES.map(([k]) => k).filter((k) => s.players[k]);
+  s.playerPref = pref && s.players[pref] ? pref : (have[0] || '');
+}
+const renderIfCurrent = (s) => { if (state.current === s.id) renderPlayer(); };
+
+// Retrouve le morceau sur chaque service : liens connus de Genius, puis recherche par titre et artiste.
+async function loadMedia(s) {
+  if (!s || s.finding) return;
+  migratePlayers(s); s.finding = true; renderIfCurrent(s);
+  try {
+    if (s.gid) {
+      try {
+        const { media } = await api('/api/song-media?id=' + encodeURIComponent(s.gid));
+        s.media = media || {};
+        for (const kind of ['spotify', 'youtube', 'soundcloud']) { const u = safeLink(s.media[kind], kind); if (u) setPlayer(s, u); }
+      } catch { /* pas bloquant */ }
+    }
+    if (s.title) {
+      try {
+        const { tracks } = await api(`/api/find-track?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}`);
+        for (const k of ['spotify', 'apple', 'deezer', 'youtube']) if (tracks?.[k]) setPlayer(s, tracks[k]);
+      } catch { /* pas bloquant */ }
+    }
+    pickPlayer(s);
+  } finally { s.finding = false; s.mediaLoaded = true; save(); renderIfCurrent(s); }
+}
+const ensureMedia = (s) => { if (s && !s.mediaLoaded && !s.finding) loadMedia(s); };
+
+let frameKey = '', formKey = '', playerEditing = false;
+const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);
 function renderPlayer() {
   const s = song(); if (!s) return;
-  const p = s.player;
-  const key = `${s.id}|${p ? p.src : ''}|${playerEditing}`;
-  if (key === playerKey) return; // ne recrée pas l'iframe : la musique ne doit pas s'interrompre
-  playerKey = key;
-  const box = $('#player');
-  if (p && !playerEditing) {
-    box.innerHTML = `<div class="pbar"><span class="label">${esc(t('player.listen', { p: p.provider }))}</span>
-        <button class="link" data-p="change">${esc(t('player.change'))}</button><button class="link" data-p="remove">${esc(t('player.remove'))}</button></div>
-      <iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${(/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h) ? `height="${/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
-        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>
-      <p class="pnote">${esc(t('player.note'))}</p>`;
-  } else if (playerEditing || p) {
-    box.innerHTML = `<form id="playerForm"><input id="playerUrl" type="text" placeholder="${esc(t('player.ph'))}" required autocomplete="off">
-        <button class="btn solid">${esc(t('player.addBtn'))}</button><button class="link" type="button" data-p="cancel">${esc(t('player.cancel'))}</button></form><p class="perr" id="playerErr" hidden></p>`;
-    $('#playerUrl').focus();
-  } else {
-    box.innerHTML = `<button class="add" data-p="change">${esc(t('player.add'))}</button>`;
+  migratePlayers(s);
+  const sel = s.playerPref && s.players[s.playerPref] ? s.playerPref : '';
+  // onglets : peuvent être redessinés à tout moment sans toucher au lecteur
+  $('#ptabs').innerHTML = `<span class="label">${esc(t('player.listenLabel'))}</span>`
+    + SERVICES.map(([k, name]) => `<button type="button" class="ptab${sel === k ? ' on' : ''}" data-svc="${k}" ${s.players[k] ? '' : 'disabled'} title="${s.players[k] ? '' : esc(t('player.notFound'))}">${esc(name)}</button>`).join('')
+    + (s.finding ? `<span class="small pfind">${esc(t('player.finding'))}</span>` : '')
+    + `<span class="pspace"></span><button class="link" type="button" data-p="change">${esc(t('player.link'))}</button>`
+    + (sel ? `<button class="link" type="button" data-p="remove">${esc(t('player.remove'))}</button>` : '');
+  // lecteur : recréé seulement si le morceau change, pour ne pas couper la musique
+  const p = sel && s.players[sel];
+  const fk = `${s.id}|${p ? p.src : ''}${p ? '' : '|' + !!s.finding}|${getLang()}`;
+  if (fk !== frameKey) {
+    frameKey = fk;
+    const h = p && frameHeight(p);
+    $('#pframe').innerHTML = p
+      ? `<iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${h ? `height="${h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+          allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>
+         <p class="pnote">${esc(t('player.note'))}</p>`
+      : (s.finding ? '' : `<p class="pnote">${esc(t('player.none'))}</p>`);
+  }
+  // formulaire « coller un lien »
+  const fm = playerEditing ? 'on' : 'off';
+  if (fm !== formKey) {
+    formKey = fm;
+    $('#pform').innerHTML = playerEditing
+      ? `<form id="playerForm"><input id="playerUrl" type="text" placeholder="${esc(t('player.ph'))}" required autocomplete="off">
+          <button class="btn solid">${esc(t('player.addBtn'))}</button><button class="link" type="button" data-p="cancel">${esc(t('player.cancel'))}</button></form><p class="perr" id="playerErr" hidden></p>`
+      : '';
+    if (playerEditing) $('#playerUrl').focus();
   }
 }
 $('#player').addEventListener('click', (e) => {
-  const a = e.target.closest('[data-p]'); if (!a) return;
   const s = song(); if (!s) return;
+  const tab = e.target.closest('[data-svc]');
+  if (tab && !tab.disabled) {
+    s.playerPref = pref = tab.dataset.svc;
+    try { localStorage.setItem('ll_pp', pref); } catch {}
+    save(); renderPlayer(); return;
+  }
+  const a = e.target.closest('[data-p]'); if (!a) return;
   if (a.dataset.p === 'change') playerEditing = true;
   if (a.dataset.p === 'cancel') playerEditing = false;
-  if (a.dataset.p === 'remove') { delete s.player; playerEditing = false; save(); }
+  if (a.dataset.p === 'remove') { delete s.players[s.playerPref]; s.playerPref = ''; pickPlayer(s); save(); }
   renderPlayer();
 });
 $('#player').addEventListener('submit', (e) => {
   e.preventDefault();
-  const s = song(); const p = parsePlayer($('#playerUrl').value);
-  if (!p) { const er = $('#playerErr'); er.textContent = t('player.err'); er.hidden = false; return; }
-  s.player = { ...p, url: $('#playerUrl').value.trim() }; playerEditing = false; save(); renderPlayer();
+  const s = song(); const url = $('#playerUrl').value.trim();
+  const k = parsePlayer(url) && setPlayer(s, url, true);
+  if (!k) { const er = $('#playerErr'); er.textContent = t('player.err'); er.hidden = false; return; }
+  s.playerPref = pref = k; try { localStorage.setItem('ll_pp', pref); } catch {}
+  playerEditing = false; save(); renderPlayer();
 });
 
 // ---------- panneau de traduction (mot / expression) ----------
@@ -549,6 +587,7 @@ function showTab(name) {
   $('#homeTab').hidden = name !== 'home'; $('#songTab').hidden = name !== 'song'; $('#libraryTab').hidden = name !== 'library';
   closePop(); hideTip(); window.scrollTo(0, 0);
   if (name === 'home') renderHome();
+  if (name === 'song') ensureMedia(song());
 }
 document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
 $('#brand').onclick = (e) => { e.preventDefault(); showTab('home'); };
@@ -724,6 +763,6 @@ render();
 showTab('home');
 document.querySelectorAll('[data-lang]').forEach((b) => b.onclick = () => {
   setLang(b.dataset.lang);
-  playerKey = '';          // reconstruit le lecteur avec les nouveaux libellés
+  frameKey = ''; formKey = '';          // reconstruit le lecteur avec les nouveaux libellés
   render(); renderHome(); drawPanel();
 });

@@ -7,6 +7,7 @@ import { fetchGenius } from './genius.js';
 import { translate, translateMany, LANGUAGES } from './translate.js';
 import { deeplOn, deeplSupports, deeplTranslate, deeplCheck } from './deepl.js';
 import { extractMedia } from './genius-media.js';
+import { findTracks } from './find-track.js';
 import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems, suggestVocab, diagnose } from './llm.js';
 
 try { // mini chargeur .env (GENIUS_TOKEN=...)
@@ -20,6 +21,7 @@ try { // mini chargeur .env (GENIUS_TOKEN=...)
   if (/^\{\\rtf/.test(raw.trim())) console.log('⚠ .env est en « texte enrichi » (TextEdit) : Format > Convertir au format texte, puis enregistrez.');
 } catch { console.log('No .env file: using environment variables.'); }
 const mediaCache = new Map();
+const trackCache = new Map();
 const searchCache = new Map(); // évite de rappeler Genius pour la même recherche
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const PORT = process.env.PORT || 3000;
@@ -41,7 +43,7 @@ const HOSTED = process.env.RATE_LIMIT !== 'off' && !!(process.env.RENDER || proc
 const LIM = { hour: +process.env.LIMIT_PER_HOUR || 250, day: +process.env.LIMIT_PER_DAY || 1000, global: +process.env.LIMIT_GLOBAL_PER_DAY || 8000 };
 const buckets = new Map();
 let globalCount = { day: '', n: 0 };
-const COUNTED = new Set(['/api/song-media', '/api/translate-lines', '/api/translate-words', '/api/translate', '/api/suggest-words', '/api/search', '/api/lyrics']);
+const COUNTED = new Set(['/api/find-track', '/api/song-media', '/api/translate-lines', '/api/translate-words', '/api/translate', '/api/suggest-words', '/api/search', '/api/lyrics']);
 const clientIp = (req) => ((process.env.RENDER || process.env.TRUST_PROXY) ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '') || req.socket.remoteAddress || 'inconnu';
 function rateLimit(req) {
   if (!HOSTED) return null;
@@ -64,6 +66,17 @@ async function api(req, res, url) {
   if (COUNTED.has(url.pathname)) { const limited = rateLimit(req); if (limited) return json(res, 429, { error: limited }); }
   try {
     if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel() });
+    if (url.pathname === '/api/find-track') {
+      // Retrouve le morceau sur Deezer, Apple Music (et Spotify / YouTube si des clés sont configurées) pour les lecteurs intégrés
+      const title = (url.searchParams.get('title') || '').trim().slice(0, 160), artist = (url.searchParams.get('artist') || '').trim().slice(0, 160);
+      if (!title) return json(res, 200, { tracks: {} });
+      const ck = `${title}|${artist}`.toLowerCase(), hit = trackCache.get(ck);
+      if (hit && Date.now() - hit.at < (hit.any ? 3600e3 : 600e3)) return json(res, 200, { tracks: hit.tracks });
+      const tracks = await findTracks({ title, artist });
+      if (trackCache.size > 500) trackCache.clear();
+      trackCache.set(ck, { at: Date.now(), tracks, any: Object.values(tracks).some(Boolean) });
+      return json(res, 200, { tracks });
+    }
     if (url.pathname === '/api/song-media') {
       // Liens d'écoute connus de Genius pour une chanson (jamais bloquant : sans lien, l'app propose des recherches)
       const token = process.env.GENIUS_TOKEN, id = String(url.searchParams.get('id') || '').replace(/\D/g, '').slice(0, 12);
