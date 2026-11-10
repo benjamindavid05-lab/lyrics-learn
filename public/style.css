@@ -744,3 +744,6 @@ summary:hover{transform:translateX(3px)}
 .dot.wait{background:var(--c2);animation:pulse 1.6s ease-out infinite}
 .dot.man{background:var(--c4)}
 .syncman{display:inline-flex;align-items:center;gap:12px}
+
+.btn.solid.saved{background:var(--c3);color:#0a0a0a;border-color:#0a0a0a;box-shadow:0 5px 0 rgba(0,0,0,.35)}
+.btn.solid.saved:hover{background:var(--c1)}

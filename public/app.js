@@ -633,7 +633,8 @@ function drawPanel() {
   pop.classList.toggle('open', !!popCtx && !!s);
   if (!popCtx || !s) { pop.innerHTML = `<div class="label">${esc(t('panel.title'))}</div><p class="placeholder">${esc(t('panel.placeholder'))}</p>`; return; }
   const line = s.lines[popCtx.lineIdx] || { text: '' }, text = popCtx.text;
-  const inLib = state.library.some((e) => norm(e.text) === norm(text));
+  const libEntry = state.library.find((e) => norm(e.text) === norm(text)), inLib = !!libEntry;
+  const stale = inLib && popCtx.tr && libEntry.lang && libEntry.lang !== state.target; // enregistré dans une autre langue de traduction
   const inGoal = s.goal.words.some((g) => norm(g.word) === norm(text));
   const single = !/\s/.test(text.trim());
   pop.innerHTML = `<div class="label"><span>${esc(t('panel.title'))}</span><button id="pClose" aria-label="${esc(t('common.close'))}">✕</button></div>
@@ -643,7 +644,7 @@ function drawPanel() {
     ${popCtx.note ? `<p class="note"><b>${esc(t('panel.note'))}</b>${esc(popCtx.note)}</p>` : ''}
     <p class="ctx" dir="auto">“${esc(line.text)}”</p>
     ${line.tr ? `<p class="ctxtr">${esc(line.tr)}</p>` : ''}
-    <div class="acts"><button class="btn solid" id="pSave" ${inLib || !popCtx.tr ? 'disabled' : ''}>${inLib ? t('panel.saved') : t('panel.save')}</button>
+    <div class="acts"><button class="btn solid${inLib && !stale ? ' saved' : ''}" id="pSave" ${!inLib && !popCtx.tr ? 'disabled' : ''} title="${inLib && !stale ? esc(t('panel.unsaveHint')) : ''}">${stale ? esc(t('panel.update')) : inLib ? t('panel.saved') : t('panel.save')}</button>
       ${single ? `<button class="btn" id="pGoal">${inGoal ? t('panel.goalRemove') : t('panel.goalAdd')}</button>` : ''}</div>`;
 }
 
@@ -687,6 +688,12 @@ pop.addEventListener('click', (e) => {
   if (!popCtx || !s) return;
   if (b.id === 'pRetry') { wordCache.delete(`${state.target}|${popCtx.text}|${popCtx.lineIdx}`); return openPop(popCtx.text, popCtx.lineIdx); }
   if (b.id === 'pSave') {
+    const cur = state.library.find((e) => norm(e.text) === norm(popCtx.text));
+    if (cur) {
+      if (popCtx.tr && cur.lang && cur.lang !== state.target) { cur.tr = popCtx.tr; cur.rm = popCtx.rm; cur.lang = state.target; } // met à jour la traduction dans la langue choisie
+      else state.library = state.library.filter((e) => e !== cur); // un second clic retire le mot de la bibliothèque
+      save(); render(); drawPanel(); return;
+    }
     if (!popCtx.tr) return; // on n'enregistre jamais un mot sans sa traduction
     const l = s.lines[popCtx.lineIdx];
     state.library.unshift({ id: crypto.randomUUID(), text: popCtx.text, tr: popCtx.tr, rm: popCtx.rm, lang: state.target, src: normLang(s.source) || guessScript(popCtx.text) || guessScript(l.text), sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
