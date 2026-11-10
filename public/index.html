@@ -22,32 +22,19 @@
     <aside class="side">
       <section class="card">
         <h2>Ajouter une chanson</h2>
-        <ol class="small steps">
-          <li>Sur la page Genius : <b>Cmd+A</b> puis <b>Cmd+C</b> (Ctrl sous Windows).</li>
-          <li>Ici : cliquez le bouton ci-dessous.</li>
-        </ol>
-        <button id="pasteBtn" class="primary" type="button">📋 Coller depuis le presse-papiers</button>
-        <details id="urlDetails"><summary>Essayer avec un lien Genius</summary>
-        <form id="urlForm">
-          <input id="url" type="url" placeholder="https://genius.com/…-lyrics" required>
-          <button class="primary">Importer depuis Genius</button>
-        </form></details>
+        <form id="searchForm">
+          <input id="q" type="search" placeholder="Titre, artiste… ou lien Genius" autocomplete="off" required>
+          <button class="primary">Rechercher sur Genius</button>
+        </form>
+        <ul id="hits" class="hits"></ul>
         <details id="manual">
-          <summary>Coller à la main</summary>
+          <summary>Coller des paroles à la main</summary>
           <input id="mTitle" placeholder="Titre">
           <input id="mArtist" placeholder="Artiste">
           <textarea id="mLyrics" rows="6" placeholder="Paroles…"></textarea>
           <button id="mGo" class="secondary" type="button">Utiliser ces paroles</button>
         </details>
         <p id="status" class="status" role="status"></p>
-      </section>
-      <section class="card">
-        <h2>Import en un clic</h2>
-        <ol class="small steps">
-          <li>Affichez la barre de favoris (Safari : Cmd+Maj+B).</li>
-          <li>Faites glisser ce bouton dedans : <a id="bm" class="bm" href="#">♪ Envoyer à Lyrics Learn</a></li>
-          <li>Sur une page de chanson Genius, cliquez sur ce favori.</li>
-        </ol>
       </section>
       <section class="card">
         <h2>Mes chansons</h2>
@@ -58,7 +45,7 @@
     <section class="center">
       <div id="empty" class="card empty">
         <h2>Commencez par une chanson</h2>
-        <p>Collez un lien Genius : les paroles sont importées et traduites ligne par ligne.</p>
+        <p>Recherchez un titre (ou collez un lien Genius) : les paroles sont importées puis traduites ligne par ligne.</p>
         <ul>
           <li><b>Cliquez</b> un mot, ou <b>sélectionnez</b> une expression, pour la traduire et l’enregistrer.</li>
           <li>Fixez un <b>objectif de mots</b> à apprendre : ils sont mis en relief dans les paroles.</li>
@@ -107,6 +94,7 @@
     </div>
   </main>
 
+  <dialog id="dlg" class="dlg"></dialog>
   <div id="pop" class="pop" hidden></div>
   <div id="tip" class="tip" hidden></div>
   <script type="module" src="app.js"></script>

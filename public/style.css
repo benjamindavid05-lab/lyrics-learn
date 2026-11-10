@@ -70,3 +70,32 @@ details .secondary{margin-top:8px}
 .lib .m{flex:1}.lib .s{color:var(--muted);font-size:.82rem}
 @media(max-width:1000px){.layout,.layout:has(#goalSide[hidden]){grid-template-columns:1fr}.side{position:static}}
 .steps{padding-left:18px;margin:0;color:var(--muted)}.steps li{margin-bottom:6px}.bm{display:inline-block;margin-top:4px;background:var(--accent);color:#fff;text-decoration:none;border-radius:8px;padding:6px 10px;cursor:grab}
+
+.hits{list-style:none;margin:10px 0 0;padding:0}
+.hits li{display:flex;gap:10px;align-items:center;padding:6px;border-radius:8px;cursor:pointer}
+.hits li:hover{background:var(--bg)}.hits img{width:40px;height:40px;border-radius:6px;object-fit:cover;background:var(--line)}
+.hits b{display:block;line-height:1.2}.hits small{color:var(--muted)}
+.dlg{border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);padding:20px;width:min(520px,92vw)}
+.dlg::backdrop{background:rgba(10,8,20,.55)}
+.dlg h2{font-size:1.15rem;margin:0 0 2px}.dlg .x{float:right;border:0;background:none;color:var(--muted);font-size:1.2rem}
+.dlg ol{padding-left:0;list-style:none;margin:14px 0;display:grid;gap:12px;counter-reset:s}
+.dlg li{counter-increment:s;display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start}
+.dlg li::before{content:counter(s);background:var(--accent);color:#fff;border-radius:50%;width:28px;height:28px;display:grid;place-items:center;font-weight:700}
+.dlg .primary{margin-top:0}
+.ok{color:#2a8a57;font-weight:600}
+kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;border-radius:6px;padding:1px 7px;font:inherit;font-weight:700}
+/* animation du geste : sélectionner tout puis copier */
+.demo{margin-top:8px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--bg);font-size:.8rem}
+.demo .bar{display:flex;gap:5px;padding:6px 8px;background:var(--line)}.demo .bar i{width:8px;height:8px;border-radius:50%;background:var(--muted);opacity:.5}
+.demo .page{position:relative;padding:10px 12px;line-height:1.7;direction:rtl;text-align:right}
+.demo .page span{display:block}
+.demo .sel{position:absolute;inset:0;background:rgba(108,76,241,.28);transform-origin:top;animation:sel 6s infinite}
+.demo .keys{display:flex;gap:8px;justify-content:center;padding:8px}
+.demo .keys kbd{opacity:.25;animation:k1 6s infinite}.demo .keys kbd+kbd{animation-name:k2}
+.demo .toast{position:absolute;left:50%;bottom:6px;transform:translateX(-50%);background:#1d1a2b;color:#fff;border-radius:99px;padding:2px 10px;opacity:0;animation:t 6s infinite;direction:ltr}
+@keyframes sel{0%,15%{transform:scaleY(0)}30%,90%{transform:scaleY(1)}100%{transform:scaleY(0)}}
+@keyframes k1{0%,10%{opacity:.25}15%,30%{opacity:1;background:var(--accent-2);color:#000}35%,100%{opacity:.25}}
+@keyframes k2{0%,45%{opacity:.25}50%,65%{opacity:1;background:var(--accent-2);color:#000}70%,100%{opacity:.25}}
+@keyframes t{0%,50%{opacity:0}55%,85%{opacity:1}95%,100%{opacity:0}}
+@media(prefers-reduced-motion:reduce){.demo *{animation:none!important}.demo .sel{transform:none}}
+[hidden]{display:none!important}

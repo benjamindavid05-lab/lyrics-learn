@@ -5,6 +5,11 @@ import { fileURLToPath } from 'node:url';
 import { fetchGenius } from './genius.js';
 import { translate, translateMany, LANGUAGES } from './translate.js';
 
+try { // mini chargeur .env (GENIUS_TOKEN=...)
+  for (const l of (await fs.readFile(new URL('./.env', import.meta.url), 'utf8')).split('\n')) {
+    const m = l.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  }
+} catch {}
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const PORT = process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
@@ -23,6 +28,19 @@ async function readBody(req) {
 async function api(req, res, url) {
   try {
     if (url.pathname === '/api/languages') return json(res, 200, LANGUAGES);
+    if (url.pathname === '/api/search') {
+      const token = process.env.GENIUS_TOKEN;
+      if (!token) return json(res, 200, { needsToken: true, hits: [] });
+      const r = await fetch('https://api.genius.com/search?per_page=8&q=' + encodeURIComponent(url.searchParams.get('q') || ''), {
+        headers: { authorization: 'Bearer ' + token }, signal: AbortSignal.timeout(10000)
+      });
+      if (!r.ok) throw new Error(r.status === 401 ? 'Jeton Genius invalide' : `Recherche Genius indisponible (${r.status})`);
+      const data = await r.json();
+      const hits = (data.response?.hits || []).filter((h) => h.type === 'song').map(({ result: x }) => ({
+        title: x.title, artist: x.primary_artist?.name || '', url: x.url, thumb: x.song_art_image_thumbnail_url || ''
+      }));
+      return json(res, 200, { hits });
+    }
     if (url.pathname === '/api/lyrics' && req.method === 'GET') {
       return json(res, 200, await fetchGenius(url.searchParams.get('url') || ''));
     }

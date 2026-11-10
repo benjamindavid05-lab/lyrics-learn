@@ -277,15 +277,6 @@ $('#songList').addEventListener('click', async (e) => {
   state.current = li.dataset.id; save(); closePop();
   if (song().target !== state.target) await translateSong(); else render();
 });
-$('#urlForm').onsubmit = async (e) => {
-  e.preventDefault();
-  setStatus('Import des paroles…');
-  try {
-    const s = await api('/api/lyrics?url=' + encodeURIComponent($('#url').value.trim()));
-    await addSong({ ...s, url: $('#url').value.trim() });
-    $('#url').value = '';
-  } catch (err) { setStatus(err.message + ' Utilisez plutôt le bouton « Coller depuis le presse-papiers ».', true); }
-};
 // Nettoie un texte copié depuis toute une page Genius (Cmd+A) : ne garde que les paroles.
 function cleanPasted(raw) {
   const L = raw.replace(/\r/g, '').split('\n').map((x) => x.trim() === '' ? '' : x.replace(/\s+$/, ''));
@@ -301,16 +292,85 @@ function cleanPasted(raw) {
     .join('\n').replace(/\n{3,}/g, '\n\n').trim();
   return { title, lyrics };
 }
-async function useText(raw) {
+async function useText(raw, meta = {}) {
   const { title, lyrics } = cleanPasted(raw);
-  if (!lyrics) return setStatus('Rien à importer : copiez d’abord les paroles.', true);
-  const [artist, name] = title.split(/\s[–—-]\s/).length > 1 ? [title.split(/\s[–—-]\s/)[0], title.split(/\s[–—-]\s/).slice(1).join(' - ')] : ['', title];
-  await addSong({ title: $('#mTitle').value.trim() || name || 'Sans titre', artist: $('#mArtist').value.trim() || artist, lyrics });
+  if (!lyrics) { setStatus('Rien à importer : copiez d’abord les paroles.', true); return false; }
+  const parts = title.split(/\s[–—-]\s/);
+  const [artist, name] = parts.length > 1 ? [parts[0], parts.slice(1).join(' - ')] : ['', title];
+  await addSong({
+    title: meta.title || $('#mTitle').value.trim() || name || 'Sans titre',
+    artist: meta.artist || $('#mArtist').value.trim() || artist,
+    url: meta.url || '', lyrics
+  });
+  return true;
 }
-$('#pasteBtn').onclick = async () => {
-  try { await useText(await navigator.clipboard.readText()); }
-  catch { $('#manual').open = true; $('#mLyrics').focus(); setStatus('Autorisez l’accès au presse-papiers, ou collez le texte (Cmd+V) dans la zone ci-dessous.', true); }
+
+// ---------- recherche Genius + fenêtre guidée ----------
+const MAC = /Mac|iPhone|iPad/.test(navigator.platform);
+const MOD = MAC ? '⌘' : 'Ctrl';
+const slugToQuery = (u) => decodeURIComponent(new URL(u).pathname.replace(/^\//, '').replace(/-lyrics.*$/i, '')).replace(/-/g, ' ');
+
+$('#searchForm').onsubmit = async (e) => {
+  e.preventDefault();
+  const q = $('#q').value.trim(); $('#hits').innerHTML = '';
+  if (/^https?:\/\/(www\.)?genius\.com\//i.test(q)) {
+    // lien direct : pas besoin de recherche
+    return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '' });
+  }
+  setStatus('Recherche…');
+  try {
+    const r = await api('/api/search?q=' + encodeURIComponent(q));
+    if (r.needsToken) return setStatus('Recherche non configurée : ajoutez GENIUS_TOKEN (voir README). Vous pouvez coller un lien Genius à la place.', true);
+    setStatus(r.hits.length ? '' : 'Aucun résultat.', !r.hits.length);
+    $('#hits').innerHTML = r.hits.map((h, i) => `<li data-i="${i}"><img src="${esc(h.thumb)}" alt=""><span><b dir="auto">${esc(h.title)}</b><small>${esc(h.artist)}</small></span></li>`).join('');
+    $('#hits').onclick = (ev) => { const li = ev.target.closest('li'); if (li) openImport(r.hits[Number(li.dataset.i)]); };
+  } catch (err) { setStatus(err.message, true); }
 };
+
+const dlg = $('#dlg');
+let watcher = null;
+function openImport(h) {
+  const label = [h.title, h.artist].filter(Boolean).join(' — ');
+  dlg.innerHTML = `<button class="x" id="dX" aria-label="Fermer">✕</button>
+    <h2 dir="auto">${esc(label)}</h2><div class="muted small">Importer les paroles en 3 gestes</div>
+    <ol>
+      <li><div><button class="primary" id="dOpen">Ouvrir la page Genius</button>
+        <div class="muted small" style="margin-top:4px">Elle s’ouvre dans une petite fenêtre : ne la fermez pas tout de suite.</div></div></li>
+      <li><div>Dans cette fenêtre : <kbd>${MOD}</kbd> + <kbd>A</kbd> puis <kbd>${MOD}</kbd> + <kbd>C</kbd>
+        <div class="demo" aria-hidden="true"><div class="bar"><i></i><i></i><i></i></div>
+          <div class="page"><span>אולי אולא, יהיה לי רע</span><span>יהיה לי טוב</span><span>הכל יכול לקרות</span><div class="sel"></div><div class="toast">Copié ✓</div></div>
+          <div class="keys"><kbd>${MOD} A</kbd><kbd>${MOD} C</kbd></div></div></div></li>
+      <li><div id="dState">Revenez ici : les paroles copiées sont détectées automatiquement.
+        <div style="margin-top:8px"><button class="secondary" id="dPaste">📋 Coller les paroles copiées</button></div></div></li>
+    </ol>`;
+  const state$ = () => $('#dState');
+  let popup = null, done = false;
+  const finish = async (raw) => {
+    if (done) return; done = true;
+    state$().innerHTML = '<span class="ok">Paroles trouvées, import en cours…</span>';
+    if (await useText(raw, h)) { stop(); dlg.close(); if (popup && !popup.closed) popup.close(); } else done = false;
+  };
+  const tryClipboard = async (auto) => {
+    try {
+      const txt = await navigator.clipboard.readText();
+      const looksRight = norm(txt).includes(norm(h.title)) && txt.length > 60;
+      if (looksRight || (!auto && txt.trim())) return finish(txt);
+      if (!auto) state$().insertAdjacentHTML('beforeend', '<div class="status err">Le presse-papiers ne contient pas les paroles. Refaites ⌘A puis ⌘C dans la fenêtre Genius.</div>');
+    } catch { if (!auto) state$().insertAdjacentHTML('beforeend', '<div class="status err">Accès au presse-papiers refusé : autorisez-le, ou collez dans « Coller à la main ».</div>'); }
+  };
+  const onFocus = () => setTimeout(() => tryClipboard(true), 250);
+  const stop = () => { window.removeEventListener('focus', onFocus); clearInterval(watcher); };
+  $('#dOpen').onclick = () => {
+    popup = window.open(h.url, 'genius', 'width=980,height=820');
+    if (!popup) state$().insertAdjacentHTML('afterbegin', `<div class="status err">Fenêtre bloquée : <a href="${esc(h.url)}" target="_blank" rel="noopener">ouvrir Genius dans un onglet</a>, puis revenez ici.</div>`);
+  };
+  $('#dPaste').onclick = () => tryClipboard(false);
+  $('#dX').onclick = () => { stop(); dlg.close(); };
+  dlg.onclose = stop;
+  window.addEventListener('focus', onFocus);
+  dlg.showModal();
+}
+
 $('#mLyrics').addEventListener('paste', (e) => {
   const txt = e.clipboardData?.getData('text'); if (!txt) return;
   e.preventDefault(); useText(txt);
@@ -322,31 +382,5 @@ $('#mGo').onclick = async () => {
   $('#mLyrics').value = '';
 };
 
-// ---------- import en un clic (bookmarklet exécuté sur la page Genius) ----------
-function bookmarklet() {
-  const code = `(()=>{const c=[...document.querySelectorAll('[data-lyrics-container=true]')];
-if(!c.length){alert('Paroles introuvables : ouvrez la page d\\u2019une chanson Genius.');return}
-const l=c.map(d=>{const k=d.cloneNode(true);k.querySelectorAll('[data-exclude-from-selection=true]').forEach(e=>e.remove());k.querySelectorAll('br').forEach(b=>b.replaceWith('\\n'));return k.textContent}).join('\\n');
-const m=document.querySelector('meta[property="og:title"]');
-let t=(m?m.content:document.title).replace(/\\s*(Lyrics\\s*)?\\|\\s*Genius.*$/i,'').replace(/\\s+Lyrics$/i,''),a='';
-const p=t.split(/\\s[\u2013\u2014-]\\s/);if(p.length>1){a=p[0];t=p.slice(1).join(' - ')}
-const u=${JSON.stringify(location.origin)}+'/#import='+encodeURIComponent(JSON.stringify({title:t,artist:a,url:location.href,lyrics:l}));
-if(!window.open(u,'_blank'))location.href=u})();`;
-  return 'javascript:' + encodeURIComponent(code.replace(/\n/g, ''));
-}
-$('#bm').href = bookmarklet();
-$('#bm').onclick = (e) => { e.preventDefault(); alert('Ne cliquez pas ici : faites glisser ce bouton vers votre barre de favoris.'); };
-
-async function importFromHash() {
-  if (!location.hash.startsWith('#import=')) return;
-  try {
-    const d = JSON.parse(decodeURIComponent(location.hash.slice(8)));
-    history.replaceState(null, '', location.pathname);
-    const lyrics = String(d.lyrics || '').replace(/\r/g, '').replace(/[ \t]+\n/g, '\n').replace(/\n{3,}/g, '\n\n').trim();
-    if (lyrics) await addSong({ title: String(d.title || 'Sans titre'), artist: String(d.artist || ''), url: String(d.url || ''), lyrics });
-  } catch { setStatus('Import par le bouton impossible.', true); }
-}
-
 await initLanguages();
 render();
-await importFromHash();
