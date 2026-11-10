@@ -863,11 +863,26 @@ let currentTab = 'home';
 // Le choix de la langue de traduction ne sert que quand une chanson est ouverte à la lecture.
 function syncLangPicker() { const el = document.querySelector('.lang'); if (el) el.hidden = !(song() && currentTab === 'song'); }
 
+// trait coloré qui glisse sous l'onglet actif
+function moveNavInk() {
+  const nav = document.querySelector('.nav'), act = nav && nav.querySelector('button.active'); if (!act) return;
+  let ink = nav.querySelector('.nav-ink'); if (!ink) { ink = document.createElement('span'); ink.className = 'nav-ink'; nav.append(ink); }
+  ink.style.width = act.offsetWidth + 'px'; ink.style.transform = `translateX(${act.offsetLeft}px)`;
+}
+window.addEventListener('resize', moveNavInk);
+// onde au clic sur les éléments cliquables
+document.addEventListener('pointerdown', (e) => {
+  const el = e.target.closest?.('.btn,.ptab,.lchip,.uilang button,.nav button'); if (!el || el.disabled || matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const r = el.getBoundingClientRect(), d = Math.max(r.width, r.height) * 2;
+  const dot = document.createElement('span'); dot.className = 'ripple';
+  dot.style.cssText = `width:${d}px;height:${d}px;left:${e.clientX - r.left - d / 2}px;top:${e.clientY - r.top - d / 2}px`;
+  el.append(dot); setTimeout(() => dot.remove(), 650);
+});
 function showTab(name) {
   currentTab = name;
   document.querySelectorAll('.nav button[data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
   $('#homeTab').hidden = name !== 'home'; $('#songTab').hidden = name !== 'song'; $('#libraryTab').hidden = name !== 'library';
-  closePop(); hideTip(); window.scrollTo(0, 0);
+  closePop(); hideTip(); window.scrollTo({ top: 0, behavior: 'smooth' }); moveNavInk();
   if (name === 'home') renderHome();
   syncLangPicker();
   if (name === 'song') { ensureMedia(song()); maybeTour(); } else endTour();
@@ -1090,6 +1105,7 @@ initDemo();
 drawPanel();
 render();
 showTab('home');
+moveNavInk(); document.fonts?.ready.then(moveNavInk);
 document.querySelectorAll('[data-lang]').forEach((b) => b.onclick = () => {
   setLang(b.dataset.lang);
   frameKey = ''; formKey = '';          // reconstruit le lecteur avec les nouveaux libellés

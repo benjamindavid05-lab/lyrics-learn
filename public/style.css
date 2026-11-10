@@ -686,3 +686,54 @@ body{font-family:var(--sans)}
 .hcopy .ctas{row-gap:6px}
 .cta-hint{flex-basis:100%;order:3;margin:0;padding-left:36px;justify-content:flex-start}
 #homeResume{order:2}
+
+/* ---------- transitions souples et fluides ---------- */
+:root{--ease:cubic-bezier(.22,1,.36,1);--spring:cubic-bezier(.34,1.56,.64,1)}
+html{scroll-behavior:smooth}
+/* changement d'onglet : la page entre en glissant, ses blocs arrivent l'un après l'autre */
+main:not([hidden]){animation:tabin .55s var(--ease) backwards}
+@keyframes tabin{from{opacity:0;transform:translateY(22px) scale(.992)}to{opacity:1;transform:none}}
+main:not([hidden]) .hblock,main:not([hidden]) .stats,main:not([hidden]) .start,main:not([hidden]) .reader>*{animation:rise-in .6s var(--ease) backwards}
+main:not([hidden]) .stats{animation-delay:.05s}main:not([hidden]) .start{animation-delay:.08s}
+main:not([hidden]) .hblock:nth-of-type(1){animation-delay:.1s}main:not([hidden]) .hblock:nth-of-type(2){animation-delay:.18s}
+@keyframes rise-in{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:none}}
+/* menu principal : un trait qui glisse d'un onglet à l'autre */
+.nav{position:relative}
+.nav button{position:relative;transition:color .25s var(--ease),transform .25s var(--spring),border-color .25s var(--ease);border-bottom-color:transparent!important}
+.nav button:hover{transform:translateY(-2px)}
+.nav button:active{transform:scale(.94)}
+.nav-ink{position:absolute;bottom:0;left:0;height:3px;width:0;border-radius:3px;background:linear-gradient(90deg,var(--c1),var(--c2),var(--c3));transition:transform .45s var(--ease),width .45s var(--ease);pointer-events:none}
+/* fenêtres : apparition en douceur, fond qui se floute */
+.dlg[open]{animation:dlg-in .42s var(--ease) backwards}
+.dlg[open]::backdrop{animation:fade-in .35s ease both;backdrop-filter:blur(5px)}
+@keyframes dlg-in{from{opacity:0;transform:translateY(26px) scale(.95)}to{opacity:1;transform:none}}
+@keyframes fade-in{from{opacity:0}to{opacity:1}}
+.dlg{border-radius:18px;box-shadow:0 30px 80px rgba(0,0,0,.3)}
+/* panneau de traduction et bulles */
+#wordPanel.open{animation:rise-in .45s var(--ease) backwards}
+.tip:not([hidden]){animation:pop-in .22s var(--spring)}
+@keyframes pop-in{from{opacity:0;transform:scale(.9) translateY(6px)}to{opacity:1;transform:none}}
+.tour-card{animation:pop-in .35s var(--spring)}
+/* éléments cliquables : réponse immédiate et rebond */
+.btn,.ptab,.lchip,.cell,.card,.hits li,.uilang button,.helpbtn,.link,summary{transition:transform .25s var(--spring),box-shadow .25s var(--ease),background-color .25s var(--ease),color .25s var(--ease),border-color .25s var(--ease),opacity .25s var(--ease)}
+.ptab:hover:not(:disabled){transform:translateY(-2px)}.ptab:active:not(:disabled){transform:scale(.94)}
+.lchip:hover{transform:translateY(-2px)}.lchip:active{transform:scale(.94)}
+.cell:not(.empty):hover{transform:translateY(-3px);box-shadow:0 8px 0 rgba(0,0,0,.12)}.cell:active{transform:scale(.97)}
+.helpbtn:hover{transform:rotate(12deg) scale(1.1)}.helpbtn:active{transform:scale(.9)}
+.uilang button:active{transform:scale(.92)}
+.hits li{transition:background-color .2s,transform .25s var(--spring)}.hits li:hover{transform:translateX(6px)}
+summary:hover{transform:translateX(3px)}
+.w{transition:background-color .2s var(--ease),color .2s var(--ease),box-shadow .2s var(--ease)}
+.ln{transition:color .3s var(--ease),transform .3s var(--ease)}
+.ln.playing{transform:translateX(6px)}
+/* petit effet d'onde au clic */
+.ripple{position:absolute;border-radius:50%;pointer-events:none;background:currentColor;opacity:.28;transform:scale(0);animation:ripple .6s var(--ease) forwards}
+@keyframes ripple{to{transform:scale(1);opacity:0}}
+.btn,.ptab,.lchip,.uilang button,.nav button{position:relative;overflow:hidden}
+/* apparition douce de ce qui se dévoile */
+.tgo:not([hidden]),.trload:not([hidden]),.syncbar:not([hidden]),#followWrap:not([hidden]){animation:pop-in .4s var(--spring)}
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  main,main *,.dlg[open],.dlg[open]::backdrop,.tip,.tour-card,.ripple,#wordPanel.open{animation:none!important}
+  *{transition-duration:.01ms!important}
+}
