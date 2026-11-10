@@ -8,99 +8,98 @@
 </head>
 <body>
   <header class="top">
-    <div class="brand">♪ Lyrics Learn</div>
-    <nav class="tabs">
-      <button data-tab="song" class="active">Chanson</button>
-      <button data-tab="library">Bibliothèque <span id="libCount" class="badge">0</span></button>
+    <div class="brand">Lyrics Learn</div>
+    <nav class="nav" aria-label="Navigation">
+      <button data-tab="song" class="active">Lecture</button>
+      <button data-tab="library">Bibliothèque <span id="libCount" class="count">0</span></button>
+      <button id="openSongs" type="button">Mes chansons</button>
     </nav>
-    <label class="lang">Traduire en
+    <label class="lang"><span>Traduire en</span>
       <select id="target"></select>
     </label>
   </header>
 
-  <main id="songTab" class="layout">
-    <aside class="side">
-      <details id="addCard" class="card add" open>
-        <summary><span class="plus">＋</span> Nouvelle chanson</summary>
-        <p class="src">Paroles via <a class="gbadge" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a></p>
-        <form id="searchForm">
-          <input id="q" type="search" placeholder="Titre, artiste… ou lien Genius" autocomplete="off" required>
-          <button class="primary">Rechercher sur Genius</button>
-        </form>
-        <ul id="hits" class="hits"></ul>
-        <details id="manual">
-          <summary>Coller des paroles à la main</summary>
-          <input id="mTitle" placeholder="Titre">
-          <input id="mArtist" placeholder="Artiste">
-          <textarea id="mLyrics" rows="6" placeholder="Paroles…"></textarea>
-          <button id="mGo" class="secondary" type="button">Utiliser ces paroles</button>
-        </details>
-        <p id="status" class="status" role="status"></p>
-      </details>
-      <section class="card" id="songsCard">
-        <h2>Mes chansons</h2>
-        <ul id="songList" class="songs"></ul>
-      </section>
-    </aside>
-
-    <section class="center">
-      <div id="empty" class="card empty">
-        <h2>Apprenez une langue avec vos chansons préférées</h2>
-        <p>Ajoutez une chanson ci-dessous : les paroles sont traduites, et vous choisissez les mots à retenir.</p>
-        <ul>
-          <li><b>Cliquez</b> un mot, ou <b>sélectionnez</b> une expression, pour la traduire et l’enregistrer.</li>
-          <li>Fixez un <b>objectif de mots</b> à apprendre : ils sont mis en relief dans les paroles.</li>
-          <li>Dans la <b>bibliothèque</b>, survolez un mot pour voir la phrase d’où il vient.</li>
-        </ul>
+  <main id="songTab" class="stage">
+    <section class="reader">
+      <div id="empty" class="hero">
+        <div class="label">Apprendre par la chanson</div>
+        <h1 class="display">Apprenez une langue avec vos chansons.</h1>
+        <ol class="steps">
+          <li><span>01</span><p>Ajoutez une chanson : les paroles sont importées puis traduites.</p></li>
+          <li><span>02</span><p>Cliquez un mot, ou sélectionnez une expression, pour la traduire et l’enregistrer.</p></li>
+          <li><span>03</span><p>Fixez un objectif de mots : ils sont mis en relief dans les paroles.</p></li>
+        </ol>
+        <button id="heroAdd" class="btn solid" type="button">Ajouter une chanson</button>
       </div>
-      <article id="songView" class="card" hidden>
-        <div class="song-head">
-          <div>
-            <h1 id="sTitle"></h1>
-            <div id="sArtist" class="muted"></div>
-            <div id="sSrc" class="src"></div>
-            <div id="sEngine" class="muted small"></div>
-          </div>
-          <label class="toggle"><input type="checkbox" id="showTr" checked> Afficher la traduction</label>
+
+      <article id="songView" hidden>
+        <div class="kickerrow">
+          <div id="sArtist" class="label"></div>
+          <label class="toggle"><input type="checkbox" id="showTr" checked> Traduction</label>
         </div>
-        <div id="tip1" class="hint" hidden><span>💡 <b>Cliquez</b> sur un mot pour le traduire et l’enregistrer. <b>Sélectionnez</b> plusieurs mots pour une expression.</span><button id="tip1x" aria-label="Fermer">✕</button></div>
+        <h1 id="sTitle" class="display"></h1>
+        <div class="metarow"><div id="sSrc" class="src"></div><div id="sEngine" class="small"></div></div>
+        <div id="player" class="player"></div>
+        <div id="tip1" class="hint" hidden><span>Cliquez un mot pour le traduire. Sélectionnez plusieurs mots pour une expression.</span><button id="tip1x" aria-label="Fermer">✕</button></div>
         <div id="lyrics" class="lyrics"></div>
       </article>
     </section>
 
-    <aside class="side" id="goalSide" hidden>
-      <section class="card">
-        <h2>🎯 Objectif de la chanson</h2>
-        <div class="goal-ctl">
-          <label>Mots à apprendre
-            <select id="goalSize"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
-          </label>
-          <button id="suggest" class="secondary">Suggérer</button>
+    <aside class="rail" id="goalSide" hidden>
+      <section class="panel" id="wordPanel" aria-live="polite"></section>
+
+      <section class="goalbox">
+        <div class="goalhead">
+          <div class="label">Objectif</div>
+          <div class="goalctl">
+            <span id="progText" class="prog"></span>
+            <select id="goalSize" aria-label="Nombre de mots"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
+          </div>
         </div>
         <div class="progress"><div id="bar"></div></div>
-        <div id="progText" class="muted"></div>
-        <ul id="goalList" class="goal"></ul>
-        <label class="toggle"><input type="checkbox" id="quiz"> Mode révision (masquer les traductions)</label>
-        <p class="muted small">Astuce : cliquez un mot dans les paroles puis « Ajouter à l’objectif » pour choisir vous-même.</p>
+        <div id="goalGrid" class="grid"></div>
+        <label class="toggle quizrow"><input type="checkbox" id="quiz"> Mode révision : masquer les traductions</label>
       </section>
     </aside>
   </main>
 
   <main id="libraryTab" class="library" hidden>
-    <div class="card">
-      <div class="lib-tools">
-        <input id="libSearch" type="search" placeholder="Rechercher un mot, une traduction, une chanson…">
-        <button id="export" class="secondary">Exporter CSV (Anki)</button>
-      </div>
-      <p class="muted small">Survolez un mot pour voir la phrase de la chanson dont il est tiré.</p>
-      <ul id="libList" class="lib"></ul>
-      <p id="libEmpty" class="muted" hidden>Aucun mot enregistré pour l’instant.</p>
+    <div class="label">Bibliothèque</div>
+    <h1 class="display">Vos mots.</h1>
+    <div class="lib-tools">
+      <input id="libSearch" type="search" placeholder="Rechercher un mot, une traduction, une chanson…">
+      <button id="export" class="btn" type="button">Exporter CSV (Anki)</button>
     </div>
+    <p class="small hinttext">Survolez un mot pour voir la phrase de la chanson dont il est tiré.</p>
+    <ul id="libList" class="lib"></ul>
+    <p id="libEmpty" class="small" hidden></p>
   </main>
 
   <footer class="foot">Lyrics Learn n’est pas affilié à Genius. Les paroles appartiennent à leurs auteurs et sont affichées pour l’apprentissage. Genius est une marque de Genius Media Group Inc.</footer>
+
+  <dialog id="songsDlg" class="dlg">
+    <button class="x" id="songsX" type="button" aria-label="Fermer">✕</button>
+    <div class="label">Ajouter</div>
+    <h2>Nouvelle chanson</h2>
+    <p class="src">Paroles via <a class="gbadge" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a></p>
+    <form id="searchForm">
+      <input id="q" type="search" placeholder="Titre, artiste… ou lien Genius" autocomplete="off" required>
+      <button class="btn solid">Rechercher</button>
+    </form>
+    <ul id="hits" class="hits"></ul>
+    <details id="manual">
+      <summary>Coller des paroles à la main</summary>
+      <input id="mTitle" placeholder="Titre">
+      <input id="mArtist" placeholder="Artiste">
+      <textarea id="mLyrics" rows="6" placeholder="Paroles…"></textarea>
+      <button id="mGo" class="btn" type="button">Utiliser ces paroles</button>
+    </details>
+    <p id="status" class="status" role="status"></p>
+    <div class="label songs-label">Mes chansons</div>
+    <ul id="songList" class="songs"></ul>
+  </dialog>
+
   <dialog id="dlg" class="dlg"></dialog>
-  <div id="pop" class="pop" hidden></div>
   <div id="tip" class="tip" hidden></div>
   <script type="module" src="app.js"></script>
 </body>

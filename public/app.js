@@ -9,6 +9,7 @@ let state = { songs: {}, library: [], target: 'fr', current: null };
 try { Object.assign(state, JSON.parse(localStorage.getItem('ll_state') || '{}')); } catch {}
 const save = () => { try { localStorage.setItem('ll_state', JSON.stringify(state)); } catch {} };
 const song = () => state.songs[state.current];
+const songsDlg = $('#songsDlg');
 
 async function api(path, body) {
   const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : undefined);
@@ -38,7 +39,7 @@ async function addSong({ title, artist, url, lyrics }) {
   state.current = id;
   save();
   $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
-  $('#addCard').open = false;
+  if (songsDlg.open) songsDlg.close();
   translateSong(); // en arrière-plan : la chanson s'affiche tout de suite
 }
 
@@ -159,9 +160,10 @@ function render() {
   const s = song();
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
   $('#songTab').classList.toggle('nosong', !s);
-  if (!s) { $('#addCard').open = true; return; }
+  if (!s) { popCtx = null; activeLine = null; return; }
   $('#tip1').hidden = tipSeen;
-  $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
+  $('#sTitle').textContent = s.title;
+  $('#sArtist').textContent = ['En cours', s.artist].filter(Boolean).join(' / ');
   $('#sEngine').textContent = !s.translating && s.engine === 'google' && geminiOn ? 'Traduction simplifiée : le moteur principal est momentanément indisponible.' : '';
   $('#sSrc').innerHTML = /^https:\/\/genius\.com\//i.test(s.url || '') ? `Paroles sur <a class="gbadge" href="${esc(s.url)}" target="_blank" rel="noopener"><img src="genius-logo.svg" alt="Genius"></a>` : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
@@ -171,8 +173,9 @@ function render() {
     if (k === 'gap') return '<div class="gap"></div>';
     if (k === 'sec') return `<div class="sec">${esc(l.text.replace(/^\[|\]$/g, ''))}</div>`;
     const tr = l.tr ? `<div class="tr" dir="${dir}">${esc(l.tr)}${l.rm ? ` <small>· ${esc(l.rm)}</small>` : ''}</div>` : '';
-    return `<div class="ln"><div class="orig" dir="auto">${wordsHtml(l.text, i)}</div>${tr}</div>`;
+    return `<div class="ln${activeLine === i ? ' active' : ''}" data-i="${i}"><div class="orig" dir="auto">${wordsHtml(l.text, i)}</div>${tr}</div>`;
   }).join('');
+  renderPlayer();
   renderGoal();
 }
 
@@ -181,81 +184,156 @@ function renderGoal() {
   $('#goalSize').value = s.goal.size;
   const done = ws.filter((w) => w.done).length;
   $('#bar').style.width = ws.length ? `${(done / ws.length) * 100}%` : '0';
-  $('#progText').textContent = ws.length ? `${done} / ${ws.length} mots appris${done === ws.length ? ' 🎉' : ''}` : 'Choisissez les mots à retenir : « Suggérer » en propose.';
-  $('#goalList').innerHTML = ws.map((w, i) => `<li class="${w.done ? 'done' : ''}">
-    <input type="checkbox" data-i="${i}" ${w.done ? 'checked' : ''} aria-label="appris">
-    <span class="g"><b><bdi>${esc(w.word)}</bdi></b><span class="gt muted">${esc(w.tr || '…')}</span>${w.note ? `<small class="muted">💡 ${esc(w.note)}</small>` : ''}</span>
-    <button data-rm="${i}" title="Retirer">✕</button></li>`).join('');
+  $('#progText').textContent = ws.length ? `${done} / ${ws.length}` : '';
+  const pad = (3 - ((ws.length + 1) % 3)) % 3;
+  $('#goalGrid').innerHTML = ws.map((w, i) => `<div class="cell${w.done ? ' done' : ''}" data-i="${i}" role="button" tabindex="0" title="${esc(w.note || '')}">
+      <button class="rm" data-rm="${i}" aria-label="Retirer">✕</button>
+      <b class="cw"><bdi>${esc(w.word)}</bdi></b><span class="ct">${esc(w.tr || '…')}</span></div>`).join('')
+    + `<button class="cell cta" data-act="suggest" aria-label="Suggérer des mots"><span>+</span><small>${ws.length ? 'Autres mots' : 'Suggérer'}</small></button>`
+    + '<div class="cell empty"></div>'.repeat(pad);
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
 }
 
 function renderSongList() {
   const list = Object.values(state.songs).sort((a, b) => b.added - a.added);
   $('#songList').innerHTML = list.length ? list.map((s) => `<li data-id="${s.id}" class="${s.id === state.current ? 'on' : ''}">
-    <span><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></span><button data-del="${s.id}" title="Supprimer">✕</button></li>`).join('')
-    : '<li class="muted">Aucune chanson.</li>';
+    <span><b>${esc(s.title)}</b><small>${esc(s.artist)}</small></span><button data-del="${s.id}" title="Supprimer" aria-label="Supprimer">✕</button></li>`).join('')
+    : '<li class="small">Aucune chanson pour l’instant.</li>';
 }
 
-// ---------- popover mot / expression ----------
-const pop = $('#pop');
-let popCtx = null;
-const wordCache = new Map();
-function closePop() { pop.hidden = true; popCtx = null; }
+// ---------- lecteur : Spotify, Apple Music, Deezer, YouTube, SoundCloud ----------
+function parsePlayer(input) {
+  let raw = String(input).trim();
+  if (!/^https?:\/\//i.test(raw)) raw = 'https://' + raw;
+  let u; try { u = new URL(raw); } catch { return null; }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+  const h = u.hostname.toLowerCase().replace(/^((www|m|music|open|embed|play)\.)+/, '');
+  const path = u.pathname;
+  let m;
+  if (h === 'spotify.com' && (m = path.match(/\/(track|album|playlist|episode|show)\/([A-Za-z0-9]{10,30})/)))
+    return { provider: 'Spotify', src: `https://open.spotify.com/embed/${m[1]}/${m[2]}`, h: /track|episode/.test(m[1]) ? 152 : 352 };
+  if (h === 'apple.com' && /^\/[a-z]{2}\/(album|song|playlist)\//i.test(path)) {
+    const i = u.searchParams.get('i');
+    return { provider: 'Apple Music', src: 'https://embed.music.apple.com' + path.replace(/[^A-Za-z0-9/_%.\-]/g, '') + (i && /^\d+$/.test(i) ? `?i=${i}` : ''), h: /\/song\//.test(path) || i ? 175 : 450 };
+  }
+  if (h === 'deezer.com' && (m = path.match(/\/(track|album|playlist)\/(\d+)/)))
+    return { provider: 'Deezer', src: `https://widget.deezer.com/widget/auto/${m[1]}/${m[2]}`, h: m[1] === 'track' ? 150 : 300 };
+  let yt = '';
+  if (h === 'youtu.be') yt = (path.match(/^\/([A-Za-z0-9_-]{6,15})/) || [])[1] || '';
+  else if (h === 'youtube.com') yt = (path.match(/^\/embed\/([A-Za-z0-9_-]{6,15})/) || [])[1] || u.searchParams.get('v') || '';
+  if (/^[A-Za-z0-9_-]{6,15}$/.test(yt)) return { provider: 'YouTube', src: `https://www.youtube-nocookie.com/embed/${yt}`, h: 0, kind: 'yt' };
+  if (h === 'soundcloud.com' && /^\/[A-Za-z0-9_-]+\/[A-Za-z0-9_-]+/.test(path))
+    return { provider: 'SoundCloud', src: 'https://w.soundcloud.com/player/?url=' + encodeURIComponent('https://soundcloud.com' + path.replace(/[^A-Za-z0-9/_-]/g, '')) + '&color=%23000000&hide_related=true&show_comments=false', h: 166 };
+  return null;
+}
 
-async function openPop(text, lineIdx, rect) {
-  const s = song(); const line = s.lines[lineIdx];
-  popCtx = { text, lineIdx, tr: '', rm: '' };
-  pop.hidden = false;
-  pop.style.left = Math.max(8, Math.min(window.scrollX + rect.left, window.scrollX + innerWidth - 300)) + 'px';
-  pop.style.top = window.scrollY + rect.bottom + 8 + 'px';
-  const draw = () => {
-    const inLib = state.library.some((e) => norm(e.text) === norm(text));
-    const inGoal = s.goal.words.some((g) => norm(g.word) === norm(text));
-    const single = !/\s/.test(text.trim());
-    pop.innerHTML = `<div class="t" dir="auto">${esc(text)}</div>
-      <div class="r">${popCtx.tr ? esc(popCtx.tr) : 'Traduction…'}${popCtx.rm ? ` <small class="muted">· ${esc(popCtx.rm)}</small>` : ''}</div>
-      ${popCtx.note ? `<div class="small">💡 ${esc(popCtx.note)}</div>` : ''}
-      <div class="ctx" dir="auto">« ${esc(line.text)} »</div>
-      <div class="row"><button class="primary" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? '✓ Enregistré' : '💾 Enregistrer'}</button>
-      ${single ? `<button class="secondary" id="pGoal">${inGoal ? 'Retirer de l’objectif' : '🎯 Ajouter à l’objectif'}</button>` : ''}
-      <button class="secondary" id="pClose">Fermer</button></div>`;
-  };
-  draw();
+let playerKey = '', playerEditing = false;
+function renderPlayer() {
+  const s = song(); if (!s) return;
+  const p = s.player;
+  const key = `${s.id}|${p ? p.src : ''}|${playerEditing}`;
+  if (key === playerKey) return; // ne recrée pas l'iframe : la musique ne doit pas s'interrompre
+  playerKey = key;
+  const box = $('#player');
+  if (p && !playerEditing) {
+    box.innerHTML = `<div class="pbar"><span class="label">Écouter · ${esc(p.provider)}</span>
+        <button class="link" data-p="change">Changer</button><button class="link" data-p="remove">Retirer</button></div>
+      <iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(p.src)}" ${p.h ? `height="${p.h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
+        allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="Lecteur ${esc(p.provider)}"></iframe>
+      <p class="pnote">Selon le service, l’écoute complète demande d’être connecté à votre compte dans ce navigateur ; sinon un extrait est joué.</p>`;
+  } else if (playerEditing || p) {
+    box.innerHTML = `<form id="playerForm"><input id="playerUrl" type="text" placeholder="Lien Spotify, Apple Music, Deezer, YouTube ou SoundCloud" required autocomplete="off">
+        <button class="btn solid">Ajouter</button><button class="link" type="button" data-p="cancel">Annuler</button></form><p class="perr" id="playerErr" hidden></p>`;
+    $('#playerUrl').focus();
+  } else {
+    box.innerHTML = '<button class="add" data-p="change">＋ Ajouter un lecteur</button>';
+  }
+}
+$('#player').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-p]'); if (!a) return;
+  const s = song(); if (!s) return;
+  if (a.dataset.p === 'change') playerEditing = true;
+  if (a.dataset.p === 'cancel') playerEditing = false;
+  if (a.dataset.p === 'remove') { delete s.player; playerEditing = false; save(); }
+  renderPlayer();
+});
+$('#player').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const s = song(); const p = parsePlayer($('#playerUrl').value);
+  if (!p) { const er = $('#playerErr'); er.textContent = 'Lien non reconnu. Collez le lien de partage d’un titre (Spotify, Apple Music, Deezer, YouTube, SoundCloud).'; er.hidden = false; return; }
+  s.player = { ...p, url: $('#playerUrl').value.trim() }; playerEditing = false; save(); renderPlayer();
+});
+
+// ---------- panneau de traduction (mot / expression) ----------
+const pop = $('#wordPanel');
+let popCtx = null, activeLine = null;
+const wordCache = new Map();
+
+function setActiveLine(i) {
+  activeLine = i;
+  document.querySelectorAll('#lyrics .ln').forEach((el) => el.classList.toggle('active', Number(el.dataset.i) === i));
+}
+function closePop() { popCtx = null; setActiveLine(null); drawPanel(); }
+
+function drawPanel() {
+  const s = song();
+  pop.classList.toggle('open', !!popCtx && !!s);
+  if (!popCtx || !s) { pop.innerHTML = '<div class="label">Traduction</div><p class="placeholder">Cliquez un mot dans les paroles, ou sélectionnez plusieurs mots, pour voir sa traduction ici.</p>'; return; }
+  const line = s.lines[popCtx.lineIdx] || { text: '' }, text = popCtx.text;
+  const inLib = state.library.some((e) => norm(e.text) === norm(text));
+  const inGoal = s.goal.words.some((g) => norm(g.word) === norm(text));
+  const single = !/\s/.test(text.trim());
+  pop.innerHTML = `<div class="label"><span>Traduction</span><button id="pClose" aria-label="Fermer">✕</button></div>
+    <div class="wordbig" dir="auto">${esc(text)}</div>
+    <div class="wmeta">${popCtx.rm ? esc(popCtx.rm) : ''}</div>
+    <p class="def">${popCtx.tr ? esc(popCtx.tr) : '<span class="dots">…</span>'}</p>
+    ${popCtx.note ? `<p class="note"><b>Note</b>${esc(popCtx.note)}</p>` : ''}
+    <p class="ctx" dir="auto">« ${esc(line.text)} »</p>
+    ${line.tr ? `<p class="ctxtr">${esc(line.tr)}</p>` : ''}
+    <div class="acts"><button class="btn solid" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? 'Enregistré ✓' : 'Enregistrer'}</button>
+      ${single ? `<button class="btn" id="pGoal">${inGoal ? 'Retirer de l’objectif' : 'Ajouter à l’objectif'}</button>` : ''}</div>`;
+}
+
+async function openPop(text, lineIdx) {
+  const s = song();
+  popCtx = { text, lineIdx, tr: '', rm: '', note: '' };
+  setActiveLine(lineIdx);
+  drawPanel();
   const key = `${state.target}|${text}|${lineIdx}`;
-  const apply = (r, refining) => {
+  const apply = (r) => {
     if (popCtx?.text !== text) return;
-    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; popCtx.refining = refining; draw();
+    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; drawPanel();
   };
   const pre = !/\s/.test(text.trim()) && s.wordsTarget === state.target && s.words?.[norm(text)];
-  if (pre) return apply(pre, false);
-  if (wordCache.has(key)) return apply(wordCache.get(key), false);
+  if (pre) return apply(pre);
+  if (wordCache.has(key)) return apply(wordCache.get(key));
   const base = { text, target: state.target, source: s.source };
   let smartDone = false;
-  // 1) réponse immédiate (Google), 2) version contextuelle qui la remplace
-  api('/api/translate', { ...base, fast: true }).then((r) => { if (!smartDone) apply(r, true); }).catch(() => {});
+  // 1) réponse immédiate, 2) version contextuelle qui la remplace
+  api('/api/translate', { ...base, fast: true }).then((r) => { if (!smartDone) apply(r); }).catch(() => {});
   try {
-    const r = await api('/api/translate', { ...base, context: line.text });
-    smartDone = true; wordCache.set(key, r); apply(r, false);
+    const r = await api('/api/translate', { ...base, context: s.lines[lineIdx].text });
+    smartDone = true; wordCache.set(key, r); apply(r);
   } catch (e) {
     smartDone = true;
-    if (popCtx?.text === text) { popCtx.refining = false; if (!popCtx.tr) popCtx.tr = '⚠ ' + e.message; draw(); }
+    if (popCtx?.text === text && !popCtx.tr) { popCtx.tr = '⚠ ' + e.message; drawPanel(); }
   }
 }
 
-pop.addEventListener('click', async (e) => {
-  const s = song(); if (!popCtx) return;
-  const id = e.target.id;
-  if (id === 'pClose') return closePop();
-  if (id === 'pSave') {
+pop.addEventListener('click', (e) => {
+  const s = song(); const b = e.target.closest('button'); if (!b) return;
+  if (b.id === 'pClose') return closePop();
+  if (!popCtx || !s) return;
+  if (b.id === 'pSave') {
     const l = s.lines[popCtx.lineIdx];
     state.library.unshift({ id: crypto.randomUUID(), text: popCtx.text, tr: popCtx.tr, rm: popCtx.rm, lang: state.target, sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
-    save(); closePop(); render();
+    save(); render(); drawPanel();
   }
-  if (id === 'pGoal') {
+  if (b.id === 'pGoal') {
     const i = s.goal.words.findIndex((g) => norm(g.word) === norm(popCtx.text));
     if (i >= 0) s.goal.words.splice(i, 1);
-    else s.goal.words.push({ word: popCtx.text, tr: popCtx.tr, done: false });
-    save(); closePop(); render();
+    else s.goal.words.push({ word: popCtx.text, tr: popCtx.tr, note: popCtx.note, done: false });
+    save(); render(); drawPanel();
   }
 });
 
@@ -268,16 +346,14 @@ $('#lyrics').addEventListener('mouseup', (e) => {
       if (a && a === b) {
         const w = sel.anchorNode.parentElement.closest('.w') || sel.focusNode.parentElement.closest('.w');
         const li = Number((w || a.querySelector('.w'))?.dataset.l);
-        if (!Number.isNaN(li)) { const rect = sel.getRangeAt(0).getBoundingClientRect(); return openPop(txt.replace(/\s+/g, ' '), li, rect); }
+        if (!Number.isNaN(li)) return openPop(txt.replace(/\s+/g, ' '), li);
       }
       return;
     }
     const w = e.target.closest?.('.w');
-    if (w) openPop(w.textContent, Number(w.dataset.l), w.getBoundingClientRect());
-    else if (!e.target.closest('#pop')) closePop();
+    if (w) openPop(w.textContent, Number(w.dataset.l));
   }, 0);
 });
-document.addEventListener('mousedown', (e) => { if (!e.target.closest('#pop') && !e.target.closest('#lyrics')) closePop(); });
 
 // ---------- objectif ----------
 function suggestWords() {
@@ -326,18 +402,24 @@ async function suggestGoal() {
   suggestWords(); return 'heuristic';
 }
 
-$('#suggest').onclick = async () => {
-  $('#progText').textContent = 'Choix des mots…';
+async function runSuggest() {
+  $('#progText').textContent = '…';
   const mode = await suggestGoal(); save(); render();
   if (mode !== 'llm') { try { await translateGoal(); save(); renderGoal(); } catch (e) { setStatus(e.message, true); } }
-};
+}
 $('#goalSize').onchange = () => { song().goal.size = Number($('#goalSize').value); save(); };
 $('#quiz').onchange = renderGoal;
-$('#goalList').addEventListener('click', (e) => {
-  const s = song();
-  if (e.target.dataset.rm !== undefined) { s.goal.words.splice(Number(e.target.dataset.rm), 1); save(); render(); }
-  else if (e.target.matches('input[data-i]')) { s.goal.words[Number(e.target.dataset.i)].done = e.target.checked; save(); render(); }
-  else if (e.target.classList.contains('gt')) e.target.classList.toggle('show');
+$('#goalGrid').addEventListener('click', (e) => {
+  const s = song(); if (!s) return;
+  if (e.target.closest('[data-act="suggest"]')) return runSuggest();
+  const rm = e.target.closest('[data-rm]');
+  if (rm) { s.goal.words.splice(Number(rm.dataset.rm), 1); save(); render(); return; }
+  const cell = e.target.closest('.cell[data-i]'); if (!cell) return;
+  if ($('#quiz').checked && e.target.classList.contains('ct') && !e.target.classList.contains('show')) { e.target.classList.add('show'); return; }
+  const w = s.goal.words[Number(cell.dataset.i)]; w.done = !w.done; save(); render();
+});
+$('#goalGrid').addEventListener('keydown', (e) => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.cell[data-i]')) { e.preventDefault(); e.target.click(); }
 });
 
 // ---------- bibliothèque ----------
@@ -386,8 +468,8 @@ document.addEventListener('mousemove', (e) => {
 });
 
 // ---------- navigation / événements ----------
-document.querySelectorAll('.tabs button').forEach((b) => b.onclick = () => {
-  document.querySelectorAll('.tabs button').forEach((x) => x.classList.toggle('active', x === b));
+document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = () => {
+  document.querySelectorAll('.nav button[data-tab]').forEach((x) => x.classList.toggle('active', x === b));
   $('#songTab').hidden = b.dataset.tab !== 'song'; $('#libraryTab').hidden = b.dataset.tab !== 'library';
   closePop(); hideTip();
 });
@@ -400,7 +482,7 @@ $('#songList').addEventListener('click', async (e) => {
   const del = e.target.dataset.del;
   if (del) { delete state.songs[del]; if (state.current === del) state.current = null; save(); return render(); }
   const li = e.target.closest('li[data-id]'); if (!li) return;
-  state.current = li.dataset.id; save(); closePop();
+  state.current = li.dataset.id; save(); closePop(); songsDlg.close();
   if (song().target !== state.target) await translateSong(); else render();
 });
 // Nettoie un texte copié depuis toute une page Genius (Cmd+A) : ne garde que les paroles.
@@ -463,6 +545,7 @@ $('#searchForm').onsubmit = async (e) => {
 const dlg = $('#dlg');
 let watcher = null;
 function openImport(h) {
+  if (songsDlg.open) songsDlg.close();
   const label = [h.title, h.artist].filter(Boolean).join(' — ');
   dlg.innerHTML = `<button class="x" id="dX" aria-label="Fermer">✕</button>
     <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="Ouvrir sur Genius"><img src="genius-logo.svg" alt="Genius"></a></h2><div class="muted small">Importer les paroles en 3 gestes</div>
@@ -515,9 +598,15 @@ $('#mGo').onclick = async () => {
   $('#mLyrics').value = '';
 };
 
+$('#openSongs').onclick = () => songsDlg.showModal();
+$('#heroAdd').onclick = () => songsDlg.showModal();
+$('#songsX').onclick = () => songsDlg.close();
+songsDlg.addEventListener('click', (e) => { if (e.target === songsDlg) songsDlg.close(); });
+
 try {
   const st = await api('/api/status');
   geminiOn = !!st.gemini;
 } catch {}
 await initLanguages();
+drawPanel();
 render();
