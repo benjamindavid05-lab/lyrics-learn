@@ -39,6 +39,21 @@ async function chain() {
 let sticky = ''; // dernier modèle qui a fonctionné
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// L'offre gratuite limite le nombre de requêtes par minute : on s'impose un plafond (GEMINI_RPM, 10 par défaut)
+// et on attend un créneau libre plutôt que de déclencher des 429 en rafale.
+const stamps = [];
+async function acquireSlot(maxWait) {
+  const rpm = Number(process.env.GEMINI_RPM) || 10, start = Date.now();
+  for (;;) {
+    const now = Date.now();
+    while (stamps.length && now - stamps[0] > 60000) stamps.shift();
+    if (stamps.length < rpm) { stamps.push(now); return; }
+    const wait = 60000 - (now - stamps[0]) + 50;
+    if (now + wait - start > maxWait) throw new Error('Gemini busy: request limit reached');
+    await sleep(wait);
+  }
+}
+
 async function callModel(model, prompt, schema, thinking) {
   const res = await fetch(`${BASE()}/v1beta/models/${model}:generateContent`, {
     method: 'POST',
@@ -54,11 +69,16 @@ async function callModel(model, prompt, schema, thinking) {
   return res;
 }
 
-const errText = async (res) => {
-  try { return ((await res.json())?.error?.message || '').replace(/\s+/g, ' ').slice(0, 160); } catch { return ''; }
+// Message d'erreur de Google + délai qu'il conseille avant de réessayer (en ms)
+const errInfo = async (res) => {
+  try {
+    const j = await res.json();
+    const d = (j?.error?.details || []).find((x) => /RetryInfo/.test(x?.['@type'] || ''))?.retryDelay;
+    return { msg: (j?.error?.message || '').replace(/\s+/g, ' ').slice(0, 160), ms: d ? Math.round(parseFloat(d) * 1000) : 0 };
+  } catch { return { msg: '', ms: 0 }; }
 };
 
-async function generate(prompt, schema) {
+async function generate(prompt, schema, wait = 8000) {
   const started = Date.now();
   const base = await chain();
   const order = sticky && base.includes(sticky) ? [sticky, ...base.filter((m) => m !== sticky)] : base;
@@ -68,22 +88,24 @@ async function generate(prompt, schema) {
     for (let attempt = 0; attempt < 2; attempt++) {
       if (Date.now() - started > 60000) break;
       let res;
-      try { res = await callModel(model, prompt, schema, true); } catch (e) { lastStatus = 0; lastMsg = e.message; all429 = false; await sleep(500); continue; }
+      try { await acquireSlot(wait); res = await callModel(model, prompt, schema, true); } catch (e) {
+        if (/busy: request limit/.test(e.message)) { lastStatus = 429; lastMsg = e.message; break; } lastStatus = 0; lastMsg = e.message; all429 = false; await sleep(500); continue; }
       lastStatus = res.status;
       if (res.ok) {
         const data = await res.json();
         const text = data.candidates?.[0]?.content?.parts?.map((p) => p.text || '').join('') || '';
         try { const out = JSON.parse(text); sticky = model; return out; } catch { all429 = false; break; } // réponse illisible : autre modèle
       }
-      lastMsg = await errText(res);
+      const info = await errInfo(res); lastMsg = info.msg;
       if (res.status === 400 || res.status === 401 || res.status === 403) throw new Error(`Gemini rejected the request (${res.status}): ${lastMsg || 'check GEMINI_API_KEY'}`);
       if (res.status !== 429) all429 = false;
+      if (res.status === 429 && info.ms && info.ms <= 15000 && attempt === 0) { await sleep(info.ms + 200); continue; } // Google dit quand réessayer
       if (res.status === 429 || res.status === 404) break;   // quota ou modèle inconnu : modèle suivant
       await sleep(700 * (attempt + 1));                       // 500/503… : on patiente un peu puis on réessaie
     }
     tried.push(model);
   }
-  if (all429 && lastStatus === 429) cooldownUntil = Date.now() + 60000;
+  if (all429 && lastStatus === 429) cooldownUntil = Date.now() + 30000;
   throw new Error(`Gemini unavailable (${lastStatus || 'network'}${lastMsg ? ': ' + lastMsg : ''}) — models tried: ${tried.join(', ') || 'none'}`);
 }
 
@@ -101,6 +123,7 @@ const S = 'STRING';
 
 // Traduit un lot de lignes ; `context` = toute la chanson (pour le sens), facultatif.
 export async function translateLyrics(lines, targetName, sourceCode, context = []) {
+  const WAIT = 25000;
   const withCtx = context.length > lines.length;
   const prompt = `You are an expert literary translator of song lyrics for language learners.
 Translate the lines below into ${targetName}${sourceCode && sourceCode !== 'auto' ? ` (source language code: ${sourceCode})` : ''}.
@@ -120,7 +143,7 @@ ${JSON.stringify(lines)}`;
       lines: { type: 'ARRAY', items: { type: 'OBJECT', properties: { t: { type: S }, rm: { type: S } }, required: ['t', 'rm'] } }
     },
     required: ['source_language_code', 'lines']
-  });
+  }, WAIT);
   if (!Array.isArray(r.lines) || r.lines.length !== lines.length) throw new Error('Line alignment mismatch');
   return {
     results: r.lines.map((l) => ({ text: String(l.t || '').trim(), translit: String(l.rm || '').trim() })),
@@ -129,7 +152,7 @@ ${JSON.stringify(lines)}`;
 }
 
 // Traduit des mots / expressions en tenant compte de leur phrase d'origine.
-export async function translateItems(items, targetName, sourceCode) {
+export async function translateItems(items, targetName, sourceCode, wait = 6000) {
   const prompt = `You help language learners. For each item, give its meaning in ${targetName} AS USED in its sentence (not a generic dictionary entry).
 ${sourceCode && sourceCode !== 'auto' ? `Source language code: ${sourceCode}.\n` : ''}Rules:
 - "t": short translation (1-4 words, or the natural equivalent for an expression).
@@ -143,7 +166,7 @@ ${JSON.stringify(items.map((x) => ({ text: x.text, sentence: x.context || '' }))
     type: 'OBJECT',
     properties: { items: { type: 'ARRAY', items: { type: 'OBJECT', properties: { t: { type: S }, rm: { type: S }, note: { type: S } }, required: ['t', 'rm', 'note'] } } },
     required: ['items']
-  });
+  }, wait);
   if (!Array.isArray(r.items) || r.items.length !== items.length) throw new Error('Word alignment mismatch');
   return r.items.map((x) => ({ text: String(x.t || '').trim(), translit: String(x.rm || '').trim(), note: String(x.note || '').trim() }));
 }
@@ -165,6 +188,6 @@ ${lines.join('\n')}`;
     type: 'OBJECT',
     properties: { words: { type: 'ARRAY', items: { type: 'OBJECT', properties: { w: { type: 'STRING' }, t: { type: 'STRING' }, note: { type: 'STRING' } }, required: ['w', 't', 'note'] } } },
     required: ['words']
-  });
+  }, 25000);
   return (r.words || []).map((x) => ({ word: String(x.w || '').trim(), tr: String(x.t || '').trim(), note: String(x.note || '').trim() }));
 }

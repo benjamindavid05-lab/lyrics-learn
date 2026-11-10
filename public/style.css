@@ -463,3 +463,15 @@ kbd{border:1px solid var(--ink);padding:1px 7px;font:600 12px var(--sans)}
 .dlg.help .how-ic{margin-bottom:12px}
 
 @media(max-width:960px){.top{position:static}}
+
+/* bibliothèque classée par langue : puces de filtre et en-têtes avec drapeaux */
+.flag{font-size:1.2em;line-height:1;font-family:"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif}
+.langchips{display:flex;flex-wrap:wrap;gap:8px;margin:22px 0 6px}
+.lchip{display:inline-flex;gap:8px;align-items:center;border:1px solid var(--ink);background:transparent;color:var(--ink);padding:9px 14px;font:600 12px/1 var(--sans);letter-spacing:.06em;cursor:pointer}
+.lchip small{font:500 11px var(--sans);opacity:.65}
+.lchip:hover:not(.on){background:var(--card)}
+.lchip.on{background:var(--ink);color:var(--bg)}
+.lib li.lib-h{display:flex;gap:12px;align-items:center;padding:30px 0 12px;font:700 26px/1.1 var(--serif)}
+.lib li.lib-h small{font:500 12px var(--sans);letter-spacing:.14em;color:var(--dim);margin-left:4px}
+.lib li.lib-h .flag{font-size:1.1em}
+.card .ct1 .flag{font-size:1.3em;vertical-align:-.1em}

@@ -1,5 +1,6 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
+import { normLang, guessScript, flagOf, langName } from './langs.js';
 import { SAMPLE_SONG, howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -57,7 +58,7 @@ async function translateSong() {
   const s = song(); if (!s) return;
   const idx = s.lines.map((l, i) => (lineKind(l.text) === 'line' ? i : -1)).filter((i) => i >= 0);
   const all = idx.map((i) => s.lines[i].text);
-  const CHUNK = 30, chunks = [];
+  const CHUNK = 80, chunks = []; // peu de requêtes : une chanson tient en 1 ou 2 lots
   for (let i = 0; i < idx.length; i += CHUNK) chunks.push(idx.slice(i, i + CHUNK));
   const myTarget = state.target;
   s.lines.forEach((l) => { l.smart = false; });
@@ -76,6 +77,7 @@ async function translateSong() {
           r.results.forEach((x, k) => {
             const l = s.lines[part[k]];
             if (fast && l.smart) return;
+            if (!x || !x.text) return; // ligne échouée : on garde l'existant
             l.tr = x.text; l.rm = x.translit; l.smart = !fast && r.engine === 'gemini';
           });
           if (r.source && s.source === 'auto') s.source = r.source;
@@ -88,6 +90,16 @@ async function translateSong() {
   };
   const fastDone = run(true);
   await run(false);
+  await fastDone;
+  // relance une fois les vers restés sans traduction (service momentanément saturé)
+  const missing = idx.filter((i) => !s.lines[i].tr);
+  if (missing.length && state.target === myTarget) {
+    await new Promise((r) => setTimeout(r, 2500));
+    chunks.length = 0;
+    for (let i = 0; i < missing.length; i += CHUNK) chunks.push(missing.slice(i, i + CHUNK));
+    await run(true);
+    if (idx.some((i) => !s.lines[i].tr)) s.warn = s.warn || 'Some lines could not be translated. Click Translate again to retry.';
+  }
   s.engine = engines.has('gemini') ? (engines.size > 1 ? 'mixed' : 'gemini') : engines.has('deepl') ? (engines.has('google') ? 'mixed' : 'deepl') : 'google';
   if (geminiOn && state.target === myTarget) prefetchWords(s, myTarget); // sans attendre la fin du lot rapide
   await fastDone;
@@ -105,7 +117,7 @@ async function prefetchWords(s, target) {
     const n = norm(m[0]);
     if (!seen.has(n) && [...n].length >= 2 && !/^\d+$/.test(n)) seen.set(n, { text: m[0], context: l.text });
   }
-  const entries = [...seen], CH = 80, parts = [];
+  const entries = [...seen], CH = 200, parts = [];
   for (let i = 0; i < entries.length; i += CH) parts.push(entries.slice(i, i + CH));
   const words = {};
   let next = 0;
@@ -120,7 +132,9 @@ async function prefetchWords(s, target) {
   };
   await Promise.all(Array.from({ length: Math.min(2, parts.length) }, worker));
   if (state.target !== target) return;
-  s.words = words; s.wordsTarget = target; save();
+  s.words = words; s.wordsTarget = target;
+  for (const w of s.goal.words) { const x = words[norm(w.word)]; if (x?.text) { w.tr = x.text; w.note = x.note || w.note || ''; } }
+  save(); if (state.current === s.id) renderGoal();
 }
 
 function ctxFor(word) {
@@ -132,15 +146,11 @@ function ctxFor(word) {
 async function translateGoal() {
   const s = song(); if (!s || !s.goal.words.length) return;
   const items = s.goal.words.map((w) => ({ text: w.word, context: ctxFor(w.word) }));
-  const body = { items, target: state.target, source: s.source };
-  const apply = (results, overwrite) => results.forEach((r, i) => {
-    const w = s.goal.words[i]; if (!w || w.word !== items[i].text) return;
-    if (overwrite || !w.tr) { w.tr = r.text; w.note = r.note || w.note || ''; }
-  });
-  const quick = api('/api/translate-words', { ...body, fast: true })
-    .then(({ results }) => { apply(results, false); if (state.current === s.id) renderGoal(); }).catch(() => {});
-  const { results } = await api('/api/translate-words', body);
-  await quick; apply(results, true);
+  try {
+    const { results } = await api('/api/translate-words', { items, target: state.target, source: s.source, fast: true });
+    results.forEach((r, i) => { const w = s.goal.words[i]; if (w && w.word === items[i].text && !w.tr) { w.tr = r.text; w.note = r.note || w.note || ''; } });
+    if (state.current === s.id) renderGoal();
+  } catch { /* les traductions contextuelles du préchargement prendront le relais */ }
 }
 
 // ---------- rendu des paroles ----------
@@ -226,7 +236,7 @@ function renderHome() {
     const done = x.goal.words.filter((w) => w.done).length, tot = x.goal.words.length;
     return `<div class="card" data-id="${x.id}" role="button" tabindex="0">
       <button class="del" data-del="${x.id}" aria-label="${t('common.delete')}">✕</button>
-      <div><div class="ct1">${esc(x.artist || t('common.song'))}</div><h3 dir="auto">${esc(x.title)}</h3></div>
+      <div><div class="ct1">${normLang(x.source) ? flagHtml(normLang(x.source)) + ' ' : ''}${esc(x.artist || t('common.song'))}</div><h3 dir="auto">${esc(x.title)}</h3></div>
       <div><div class="mini"><span>${tot ? t('card.progress', { done, tot }) : t('card.nogoal')}</span><span>${esc(x.id === state.current ? t('card.current') : '')}</span></div>
         <div class="minibar"><i style="width:${tot ? (done / tot) * 100 : 0}%"></i></div></div></div>`;
   }).join('') + '<button class="card new" id="homeNew" type="button"><span>+</span><small>' + t('card.new') + '</small></button>';
@@ -494,7 +504,7 @@ function drawPanel() {
   pop.innerHTML = `<div class="label"><span>${esc(t('panel.title'))}</span><button id="pClose" aria-label="${esc(t('common.close'))}">✕</button></div>
     <div class="wordbig" dir="auto">${esc(text)}</div>
     <div class="wmeta">${popCtx.rm ? esc(popCtx.rm) : ''}</div>
-    <p class="def">${popCtx.tr ? esc(popCtx.tr) : '<span class="dots">…</span>'}</p>
+    ${popCtx.err ? `<p class="def">${esc(t('panel.busy'))}</p><button class="btn" id="pRetry" type="button">${esc(t('panel.retry'))}</button>` : `<p class="def">${popCtx.tr ? esc(popCtx.tr) : '<span class="dots">…</span>'}</p>`}
     ${popCtx.note ? `<p class="note"><b>${esc(t('panel.note'))}</b>${esc(popCtx.note)}</p>` : ''}
     <p class="ctx" dir="auto">“${esc(line.text)}”</p>
     ${line.tr ? `<p class="ctxtr">${esc(line.tr)}</p>` : ''}
@@ -519,12 +529,20 @@ async function openPop(text, lineIdx) {
   let smartDone = false;
   // 1) réponse immédiate, 2) version contextuelle qui la remplace
   api('/api/translate', { ...base, fast: true }).then((r) => { if (!smartDone) apply(r); }).catch(() => {});
+  const attempt = async (n) => {
+    try { return await api('/api/translate', { ...base, context: s.lines[lineIdx].text }); }
+    catch (e) {
+      if (n >= 2 || popCtx?.text !== text) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * (n + 1)));   // le service est parfois saturé : on patiente un peu
+      return attempt(n + 1);
+    }
+  };
   try {
-    const r = await api('/api/translate', { ...base, context: s.lines[lineIdx].text });
+    const r = await attempt(0);
     smartDone = true; wordCache.set(key, r); apply(r);
-  } catch (e) {
+  } catch {
     smartDone = true;
-    if (popCtx?.text === text && !popCtx.tr) { popCtx.tr = '⚠ ' + e.message; drawPanel(); }
+    if (popCtx?.text === text && !popCtx.tr) { popCtx.err = true; drawPanel(); }
   }
 }
 
@@ -532,9 +550,10 @@ pop.addEventListener('click', (e) => {
   const s = song(); const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'pClose') return closePop();
   if (!popCtx || !s) return;
+  if (b.id === 'pRetry') { wordCache.delete(`${state.target}|${popCtx.text}|${popCtx.lineIdx}`); return openPop(popCtx.text, popCtx.lineIdx); }
   if (b.id === 'pSave') {
     const l = s.lines[popCtx.lineIdx];
-    state.library.unshift({ id: crypto.randomUUID(), text: popCtx.text, tr: popCtx.tr, rm: popCtx.rm, lang: state.target, sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
+    state.library.unshift({ id: crypto.randomUUID(), text: popCtx.text, tr: popCtx.tr, rm: popCtx.rm, lang: state.target, src: normLang(s.source) || guessScript(popCtx.text) || guessScript(l.text), sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
     save(); render(); drawPanel();
   }
   if (b.id === 'pGoal') {
@@ -631,17 +650,54 @@ $('#goalGrid').addEventListener('keydown', (e) => {
 });
 
 // ---------- bibliothèque ----------
+// Langue d'origine de chaque mot (celle qu'on apprend). Les anciennes entrées n'en avaient pas : on la retrouve une fois.
+function migrateLibrary() {
+  let changed = false;
+  for (const e of state.library) {
+    if (e.src !== undefined) continue;
+    const song = Object.values(state.songs).find((x) => x.title === e.title && (x.artist || '') === (e.artist || ''));
+    e.src = normLang(song?.source) || guessScript(e.text) || guessScript(e.sentence);
+    changed = true;
+  }
+  if (changed) save();
+}
+let libLang = 'all';
+const ui = () => getLang();
+const flagHtml = (code) => `<span class="flag" aria-hidden="true">${flagOf(code)}</span>`;
+
 function renderLibrary() {
   $('#libCount').textContent = state.library.length;
+  migrateLibrary();
   const q = norm($('#libSearch').value || '');
-  const items = state.library.filter((e) => !q || norm(`${e.text} ${e.tr} ${e.title} ${e.artist} ${e.sentence}`).includes(q));
-  $('#libEmpty').hidden = state.library.length > 0;
-  $('#libEmpty').innerHTML = libEmptyHtml(t);
-  $('#libList').innerHTML = items.map((e) => `<li data-id="${e.id}">
+  const count = {};
+  for (const e of state.library) count[e.src || ''] = (count[e.src || ''] || 0) + 1;
+  const order = Object.keys(count).sort((x, y) => count[y] - count[x] || langName(x, ui()).localeCompare(langName(y, ui())));
+  if (libLang !== 'all' && !count[libLang]) libLang = 'all';
+  const chip = (id, label, n) => `<button type="button" class="lchip${libLang === id ? ' on' : ''}" data-lang="${esc(id)}" aria-pressed="${libLang === id}">${label}<small>${n}</small></button>`;
+  const filters = $('#libFilters');
+  filters.hidden = order.length < 2;
+  filters.innerHTML = chip('all', esc(t('lib.all')), state.library.length) + order.map((l) => chip(l, `${flagHtml(l)} ${esc(langName(l, ui()))}`, count[l])).join('');
+
+  const match = (e) => !q || norm(`${e.text} ${e.tr} ${e.title} ${e.artist} ${e.sentence}`).includes(q);
+  const row = (e) => `<li data-id="${e.id}">
     <span class="e"><bdi>${esc(e.text)}</bdi></span>
     <span class="m">${esc(e.tr)}<div class="s">${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
-    <button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`).join('');
+    <button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`;
+  $('#libEmpty').hidden = state.library.length > 0;
+  $('#libEmpty').innerHTML = libEmptyHtml(t);
+  // « Toutes » : regroupé par langue, avec le drapeau en en-tête ; sinon la langue choisie seulement
+  const langs = libLang === 'all' ? order : [libLang];
+  $('#libList').innerHTML = langs.map((l) => {
+    const items = state.library.filter((e) => (e.src || '') === l && match(e));
+    if (!items.length) return '';
+    const head = (libLang === 'all' || true) ? `<li class="lib-h"><span class="flag" aria-hidden="true">${flagOf(l)}</span><span>${esc(langName(l, ui()))}</span><small>${items.length}</small></li>` : '';
+    return head + items.map(row).join('');
+  }).join('');
 }
+$('#libFilters').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-lang]'); if (!b) return;
+  libLang = b.dataset.lang; renderLibrary();
+});
 $('#libSearch').oninput = renderLibrary;
 $('#libList').addEventListener('click', (e) => {
   const id = e.target.dataset.del; if (!id) return;
@@ -649,7 +705,7 @@ $('#libList').addEventListener('click', (e) => {
 });
 $('#export').onclick = () => {
   const q = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const csv = state.library.map((e) => [e.text, e.tr, e.sentence, e.sentenceTr, `${e.title} - ${e.artist}`].map(q).join(';')).join('\n');
+  const csv = state.library.map((e) => [e.text, e.tr, e.sentence, e.sentenceTr, `${e.title} - ${e.artist}`, langName(e.src, ui())].map(q).join(';')).join('\n');
   const a = Object.assign(document.createElement('a'), { href: URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv' })), download: t('csv.name') });
   a.click(); URL.revokeObjectURL(a.href);
 };

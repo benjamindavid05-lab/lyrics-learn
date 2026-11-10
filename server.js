@@ -160,7 +160,7 @@ async function api(req, res, url) {
         const items = Array.isArray(b.items) ? b.items.slice(0, 60).map((x) => ({ text: String(x.text), context: String(x.context || '') })) : [];
         if (!LANGUAGES[b.target]) throw new Error('Unsupported target language');
         if (b.fast !== true && hasLLM()) {
-          try { return json(res, 200, { results: await translateItems(items, LANGUAGES[b.target], b.source || 'auto'), engine: 'gemini' }); } catch { /* repli */ }
+          try { return json(res, 200, { results: await translateItems(items, LANGUAGES[b.target], b.source || 'auto', b.llmOnly ? 45000 : 6000), engine: 'gemini' }); } catch { /* repli */ }
         }
         if (b.llmOnly) throw new Error('Gemini indisponible');
         if (deeplSupports(b.target)) {
