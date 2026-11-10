@@ -158,11 +158,13 @@ async function api(req, res, url) {
 // Mot de passe facultatif (APP_PASSWORD) : indispensable si l'app est hébergée en ligne, pour protéger vos clés de traduction.
 const sha = (x) => crypto.createHash('sha256').update(String(x)).digest();
 function authorized(req) {
-  const pass = process.env.APP_PASSWORD;
+  // tolère un espace, un retour à la ligne ou des guillemets collés par erreur autour du mot de passe
+  const clean = (x) => String(x ?? '').trim().replace(/^["']|["']$/g, '').trim();
+  const pass = clean(process.env.APP_PASSWORD);
   if (!pass) return true;
   const h = req.headers.authorization || '';
   if (!h.startsWith('Basic ')) return false;
-  const given = Buffer.from(h.slice(6), 'base64').toString().replace(/^[^:]*:/, '');
+  const given = clean(Buffer.from(h.slice(6), 'base64').toString().replace(/^[^:]*:/, ''));
   return crypto.timingSafeEqual(sha(given), sha(pass));
 }
 
