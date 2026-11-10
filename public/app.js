@@ -426,7 +426,7 @@ function onTick(pos, playing, dur) {
   syncPos = pos; syncAt = performance.now(); syncPlaying = playing;
   const s = song();
   // la version du minutage doit avoir la même durée que le morceau joué : sinon on en cherche une autre
-  if (s && dur > 30 && s.sync && !s.sync.none && !s.sync.durChecked) {
+  if (s && dur > 30 && s.sync && s.sync.v === 2 && !s.sync.durChecked) {
     s.sync.durChecked = true;
     if (s.sync.dur && Math.abs(s.sync.dur - dur) > 2.5) { s.syncD = Math.round(dur); s.sync = undefined; ensureSync(s); }
   }
@@ -436,8 +436,8 @@ function onTick(pos, playing, dur) {
 const currentPos = () => syncPos + (syncPlaying ? (performance.now() - syncAt) / 1000 : 0);
 function syncFrame() {
   syncRaf = 0;
-  const s = song(); if (!s || !s.sync || !s.sync.times) return;
-  const loc = locate(s.sync, currentPos() + (s.syncOff || 0));
+  const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
+  let loc; try { loc = locate(s.sync, currentPos() + (s.syncOff || 0)); } catch { return; }
   if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
     clearPlaying(); syncIdx = loc.i;
     syncEl = loc.i >= 0 ? document.querySelector(`#lyrics .ln[data-i="${loc.i}"]`) : null;
@@ -453,7 +453,10 @@ function syncFrame() {
   if (syncPlaying) syncRaf = requestAnimationFrame(syncFrame);
 }
 async function ensureSync(s) {
-  if (!s || s.sync || s.syncing || !s.title) return;
+  if (!s || s.syncing || !s.title) return;
+  // anciens minutages (format précédent) ou « introuvable » datant de plus de 10 min : on recommence
+  if (s.sync && (s.sync.none ? Date.now() - (s.sync.at || 0) > 600000 : s.sync.v !== 2)) s.sync = undefined;
+  if (s.sync) return;
   s.syncing = true;
   try {
     const r = await api(`/api/synced?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}${s.syncD ? `&d=${s.syncD}` : ''}`);
@@ -461,9 +464,9 @@ async function ensureSync(s) {
     const n = texts.filter((x) => x != null).length;
     const al = r.lines && r.lines.length ? alignLines(texts, r.lines) : null;
     s.sync = al && al.matched >= Math.max(3, n * 0.3)
-      ? { times: al.times, ends: al.ends, words: al.words, exact: al.exact, exactLines: al.exactLines, total: al.matched, dur: r.duration || 0, wordSync: !!r.wordSync, durChecked: !!s.syncD }
-      : { none: true };
-  } catch { s.sync = { none: true }; }
+      ? { v: 2, times: al.times, ends: al.ends, words: al.words, exact: al.exact, exactLines: al.exactLines, total: al.matched, dur: r.duration || 0, wordSync: !!r.wordSync, durChecked: !!s.syncD }
+      : { none: true, at: Date.now() };
+  } catch { s.sync = { none: true, at: Date.now() }; }
   finally { s.syncing = false; save(); if (state.current === s.id) renderSyncBar(s); }
 }
 function renderSyncBar(s, p) {
@@ -472,7 +475,7 @@ function renderSyncBar(s, p) {
   if (!p) { bar.hidden = true; return; }
   let html = '';
   if (!canSync(p.provider)) html = `<span>${esc(t('sync.unsupported'))}</span>`;
-  else if (!s.sync) html = `<span>${esc(t('sync.loading'))}</span>`;
+  else if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
   else if (s.sync.none) html = `<span>${esc(t('sync.none'))}</span>`;
   else {
     const exactShare = s.sync.exactLines / Math.max(1, s.sync.total);
@@ -482,11 +485,11 @@ function renderSyncBar(s, p) {
       <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${(s.syncOff || 0) > 0 ? '+' : ''}${(s.syncOff || 0).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
   }
   bar.innerHTML = html; bar.hidden = false;
-  $('#followWrap').hidden = !(s.sync && s.sync.times);
+  $('#followWrap').hidden = !(s.sync && s.sync.times && s.sync.v === 2);
   $('#follow').checked = follow;
 }
 $('#syncBar').addEventListener('click', (e) => {
-  const s = song(); if (!s || !s.sync || !s.sync.times) return;
+  const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
   const a = e.target.closest('[data-align]');
   if (a) {
     // « Cette ligne est chantée maintenant » : on aligne le minutage sur la ligne sélectionnée (clic sur un mot de cette ligne)
