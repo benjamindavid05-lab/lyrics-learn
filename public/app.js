@@ -334,13 +334,15 @@ function openImport(h) {
   dlg.innerHTML = `<button class="x" id="dX" aria-label="Fermer">✕</button>
     <h2 dir="auto">${esc(label)}</h2><div class="muted small">Importer les paroles en 3 gestes</div>
     <ol>
-      <li><div><button class="primary" id="dOpen">Ouvrir la page Genius</button>
-        <div class="muted small" style="margin-top:4px">Elle s’ouvre dans une petite fenêtre : ne la fermez pas tout de suite.</div></div></li>
-      <li><div>Dans cette fenêtre : <kbd>${MOD}</kbd> + <kbd>A</kbd> puis <kbd>${MOD}</kbd> + <kbd>C</kbd>
+      <li><div><div style="display:flex;gap:8px;flex-wrap:wrap">
+          <button class="primary" id="dEmbed" style="flex:1">Voir Genius ici</button>
+          <button class="secondary" id="dOpen">Fenêtre séparée</button></div>
+        <div id="dFrame"></div></div></li>
+      <li><div>Dans la page Genius : cliquez sur le texte, puis <kbd>${MOD}</kbd> + <kbd>A</kbd> puis <kbd>${MOD}</kbd> + <kbd>C</kbd>
         <div class="demo" aria-hidden="true"><div class="bar"><i></i><i></i><i></i></div>
           <div class="page"><span>אולי אולא, יהיה לי רע</span><span>יהיה לי טוב</span><span>הכל יכול לקרות</span><div class="sel"></div><div class="toast">Copié ✓</div></div>
           <div class="keys"><kbd>${MOD} A</kbd><kbd>${MOD} C</kbd></div></div></div></li>
-      <li><div id="dState">Revenez ici : les paroles copiées sont détectées automatiquement.
+      <li><div id="dState">Cliquez ici : les paroles copiées sont détectées automatiquement.
         <div style="margin-top:8px"><button class="secondary" id="dPaste">📋 Coller les paroles copiées</button></div></div></li>
     </ol>`;
   const state$ = () => $('#dState');
@@ -363,6 +365,13 @@ function openImport(h) {
   $('#dOpen').onclick = () => {
     popup = window.open(h.url, 'genius', 'width=980,height=820');
     if (!popup) state$().insertAdjacentHTML('afterbegin', `<div class="status err">Fenêtre bloquée : <a href="${esc(h.url)}" target="_blank" rel="noopener">ouvrir Genius dans un onglet</a>, puis revenez ici.</div>`);
+  };
+  $('#dEmbed').onclick = () => {
+    dlg.classList.add('wide');
+    $('#dFrame').innerHTML = `<iframe class="gframe" src="${esc(h.url)}" title="Genius" referrerpolicy="no-referrer"></iframe>
+      <div class="muted small" style="margin-top:4px">Zone vide ou message d’erreur ? Genius refuse l’affichage ici :
+      <a href="#" id="dFallback">utilisez la fenêtre séparée</a>.</div>`;
+    $('#dFallback').onclick = (ev) => { ev.preventDefault(); $('#dFrame').innerHTML = ''; dlg.classList.remove('wide'); $('#dOpen').click(); };
   };
   $('#dPaste').onclick = () => tryClipboard(false);
   $('#dX').onclick = () => { stop(); dlg.close(); };
