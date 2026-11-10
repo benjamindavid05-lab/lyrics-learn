@@ -8,10 +8,15 @@ import { deeplOn, deeplSupports, deeplTranslate, deeplCheck } from './deepl.js';
 import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems, suggestVocab, diagnose } from './llm.js';
 
 try { // mini chargeur .env (GENIUS_TOKEN=...)
-  for (const l of (await fs.readFile(new URL('./.env', import.meta.url), 'utf8')).split('\n')) {
-    const m = l.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/); if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, '');
+  const raw = await fs.readFile(new URL('./.env', import.meta.url), 'utf8');
+  const found = [];
+  for (const l of raw.split('\n')) {
+    const m = l.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
+    if (m && m[2] && !process.env[m[1]]) { process.env[m[1]] = m[2].replace(/^["']|["']$/g, ''); found.push(m[1]); }
   }
-} catch {}
+  console.log(`.env lu : ${found.length ? found.join(', ') : 'aucune clé trouvée'}`);
+  if (/^\{\\rtf/.test(raw.trim())) console.log('⚠ .env est en « texte enrichi » (TextEdit) : Format > Convertir au format texte, puis enregistrez.');
+} catch { console.log('.env introuvable : copiez .env.example en .env'); }
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const PORT = process.env.PORT || 3000;
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml' };
