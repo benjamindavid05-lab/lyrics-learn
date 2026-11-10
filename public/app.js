@@ -165,6 +165,7 @@ $('#tip1x').onclick = () => { tipSeen = true; try { localStorage.setItem('ll_tip
 
 function render() {
   renderSongList(); renderLibrary();
+  syncLangPicker();
   if (currentTab === 'home') renderHome();
   const s = song();
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
@@ -676,12 +677,16 @@ document.addEventListener('mousemove', (e) => {
 
 // ---------- navigation / événements ----------
 let currentTab = 'home';
+// Le choix de la langue de traduction ne sert que quand une chanson est ouverte à la lecture.
+function syncLangPicker() { const el = document.querySelector('.lang'); if (el) el.hidden = !(song() && currentTab === 'song'); }
+
 function showTab(name) {
   currentTab = name;
   document.querySelectorAll('.nav button[data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
   $('#homeTab').hidden = name !== 'home'; $('#songTab').hidden = name !== 'song'; $('#libraryTab').hidden = name !== 'library';
   closePop(); hideTip(); window.scrollTo(0, 0);
   if (name === 'home') renderHome();
+  syncLangPicker();
   if (name === 'song') { ensureMedia(song()); maybeTour(); } else endTour();
 }
 document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
