@@ -42,10 +42,13 @@ function lineKind(t) {
   return /^\[.*\]$/.test(t.trim()) ? 'sec' : 'line';
 }
 
+let pendingPlayer = '';
 async function addSong({ title, artist, url, lyrics, gid, sample, example }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
   state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, example: !!example, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
+  if (pendingPlayer && !sample) { state.songs[id].players = state.songs[id].players || {}; const k = setPlayer(state.songs[id], pendingPlayer, true); if (k) state.songs[id].playerPref = k; }
+  pendingPlayer = '';
   state.current = id;
   save();
   $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
@@ -942,6 +945,26 @@ async function runSearch(q, live) {
   }
 }
 
+// Lien copié depuis un lecteur (Spotify, YouTube, Apple Music, Deezer, SoundCloud) : on retrouve titre + artiste, puis on cherche sur Genius
+const isMusicLink = (q) => !GENIUS_LINK.test(q) && /^(https?:\/\/)?[^\s/]+\.[^\s]+/.test(q) && !!parsePlayer(q);
+async function resolveLink(q) {
+  const seq = ++searchSeq;
+  setStatus(t('link.finding'));
+  try {
+    const r = await api('/api/track-link?url=' + encodeURIComponent(q));
+    if (seq !== searchSeq) return;
+    pendingPlayer = q;
+    const name = [r.artist, r.title].filter(Boolean).join(' ');
+    $('#q').value = name;
+    setStatus(t('link.found', { name }));
+    const found = await api('/api/search?q=' + encodeURIComponent(name));
+    if (seq !== searchSeq) return;
+    if (found.needsToken) return setStatus(t('search.notConfigured'), true);
+    renderHits(found.hits);
+    setStatus(found.hits.length ? t('link.found', { name }) : t('search.none'), !found.hits.length);
+  } catch (err) { if (seq === searchSeq) setStatus(t('link.fail'), true); }
+}
+
 function openFromEmbedCode(q) {
   const emb = parseEmbedCode(q); if (!emb) return false;
   renderHits([]); $('#q').value = ''; setStatus('');
@@ -953,6 +976,7 @@ $('#searchForm').onsubmit = (e) => {
   const q = $('#q').value.trim();
   if (openFromEmbedCode(q)) return;
   if (GENIUS_LINK.test(q)) { renderHits([]); return openImport({ title: slugToQuery(q), artist: '', url: q, thumb: '', guessed: true }); }
+  if (isMusicLink(q)) return resolveLink(q);
   if (hitIdx >= 0 && hitList[hitIdx]) return openImport(hitList[hitIdx]);
   runSearch(q, false);
 };
@@ -962,6 +986,8 @@ $('#q').addEventListener('input', () => {
   clearTimeout(liveTimer);
   const q = $('#q').value.trim();
   if (openFromEmbedCode(q)) return;
+  if (isMusicLink(q)) { searchSeq++; liveTimer = setTimeout(() => resolveLink(q), 200); return; }
+  pendingPlayer = '';
   if (q.length < 2 || GENIUS_LINK.test(q)) { searchSeq++; renderHits([]); if (q.length < 2) setStatus(''); return; }
   liveTimer = setTimeout(() => runSearch(q, true), 300);
 });

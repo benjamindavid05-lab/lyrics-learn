@@ -19,7 +19,7 @@ const EN = {
   'lib.empty': 'No saved words yet. Open a song, click a word, then “Save”.',
   'foot.priv': 'Privacy',
   'foot.text': ' · Lyrics Learn is not affiliated with Genius. Lyrics belong to their authors and are shown for learning purposes. Genius is a trademark of Genius Media Group Inc.',
-  'dlg.add': 'Add', 'dlg.new': 'New song', 'dlg.via': 'Lyrics via', 'dlg.q': 'Title, artist, Genius link or embed code', 'dlg.search': 'Search',
+  'dlg.add': 'Add', 'dlg.new': 'New song', 'dlg.via': 'Lyrics via', 'dlg.q': 'Title, artist, or a music link (Spotify, YouTube…)', 'dlg.search': 'Search',
   'dlg.manual': 'Paste lyrics manually', 'dlg.title': 'Title', 'dlg.artist': 'Artist', 'dlg.lyrics': 'Lyrics…', 'dlg.use': 'Use these lyrics', 'dlg.mine': 'My songs',
   'common.close': 'Close', 'common.remove': 'Remove', 'common.delete': 'Delete', 'common.error': 'Error', 'common.untitled': 'Untitled', 'common.song': 'Song',
   'engine.name': 'the translation engine',
@@ -82,7 +82,7 @@ const EN = {
   'goal.help': 'Words to learn from this song. Click a cell when you know the word.',
   'libempty.t': 'Your library is empty', 'libempty.1': 'Click a word in a song', 'libempty.2': 'Press Save', 'libempty.3': 'It appears here',
   'read.help': 'Add a song to start reading and translating.',
-  'dlg.step1': 'Step 1 of 2 · Find your song', 'dlg.helper': 'Type a title or an artist, then pick the right result. You can also paste a Genius link.',
+  'dlg.step1': 'Step 1 of 2 · Find your song', 'dlg.helper': 'Type a title or an artist, or paste a link from your music player (Spotify, YouTube, Apple Music, Deezer, SoundCloud). Then pick the right result.', 'link.finding': 'Reading the music link…', 'link.found': 'Found: {name}. Pick the right result.', 'link.fail': 'Could not read this link. Type the title and artist instead.',
   'imp.step': 'Step 2 of 2 · Check the lyrics', 'imp.helper': 'These are the lyrics Genius shows. If they look right, import them.',
   'sample.title': 'Example song', 'sample.note': 'Written for Lyrics Learn so you can try everything right away.'
 };
@@ -107,7 +107,7 @@ const FR = {
   'lib.empty': 'Aucun mot enregistré. Ouvrez une chanson, cliquez sur un mot puis « Enregistrer ».',
   'foot.priv': 'Confidentialité',
   'foot.text': ' · Lyrics Learn n’est pas affilié à Genius. Les paroles appartiennent à leurs auteurs et sont affichées pour l’apprentissage. Genius est une marque de Genius Media Group Inc.',
-  'dlg.add': 'Ajouter', 'dlg.new': 'Nouvelle chanson', 'dlg.via': 'Paroles via', 'dlg.q': 'Titre, artiste, lien ou code Embed Genius', 'dlg.search': 'Rechercher',
+  'dlg.add': 'Ajouter', 'dlg.new': 'Nouvelle chanson', 'dlg.via': 'Paroles via', 'dlg.q': 'Titre, artiste ou lien musical (Spotify, YouTube…)', 'dlg.search': 'Rechercher',
   'dlg.manual': 'Coller des paroles à la main', 'dlg.title': 'Titre', 'dlg.artist': 'Artiste', 'dlg.lyrics': 'Paroles…', 'dlg.use': 'Utiliser ces paroles', 'dlg.mine': 'Mes chansons',
   'common.close': 'Fermer', 'common.remove': 'Retirer', 'common.delete': 'Supprimer', 'common.error': 'Erreur', 'common.untitled': 'Sans titre', 'common.song': 'Chanson',
   'engine.name': 'le moteur de traduction',
@@ -170,7 +170,7 @@ const FR = {
   'goal.help': 'Mots à apprendre dans cette chanson. Cliquez une case quand vous connaissez le mot.',
   'libempty.t': 'Votre bibliothèque est vide', 'libempty.1': 'Cliquez un mot dans une chanson', 'libempty.2': 'Appuyez sur Enregistrer', 'libempty.3': 'Il apparaît ici',
   'read.help': 'Ajoutez une chanson pour commencer à lire et traduire.',
-  'dlg.step1': 'Étape 1 sur 2 · Trouvez votre chanson', 'dlg.helper': 'Tapez un titre ou un artiste, puis choisissez le bon résultat. Vous pouvez aussi coller un lien Genius.',
+  'dlg.step1': 'Étape 1 sur 2 · Trouvez votre chanson', 'dlg.helper': 'Tapez un titre ou un artiste, ou collez un lien de votre lecteur de musique (Spotify, YouTube, Apple Music, Deezer, SoundCloud). Puis choisissez le bon résultat.', 'link.finding': 'Lecture du lien musical…', 'link.found': 'Trouvé : {name}. Choisissez le bon résultat.', 'link.fail': 'Lien illisible. Tapez plutôt le titre et l’artiste.',
   'imp.step': 'Étape 2 sur 2 · Vérifiez les paroles', 'imp.helper': 'Voici les paroles affichées par Genius. Si elles vous semblent bonnes, importez-les.',
   'sample.title': 'Chanson d’exemple', 'sample.note': 'Écrite pour Lyrics Learn afin que vous puissiez tout essayer tout de suite.'
 };
