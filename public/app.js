@@ -13,7 +13,7 @@ const song = () => state.songs[state.current];
 async function api(path, body) {
   const res = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : undefined);
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+  if (!res.ok) throw new Error(String(data.error || `Erreur ${res.status}`).replace(/Gemini|DeepL/gi, 'le moteur de traduction'));
   return data;
 }
 const setStatus = (m, err) => { const s = $('#status'); s.textContent = m; s.classList.toggle('err', !!err); };
@@ -55,7 +55,7 @@ async function translateSong() {
   s.words = {}; s.wordsTarget = ''; s.engine = ''; s.warn = ''; s.translating = true;
   render();
   const engines = new Set();
-  // fast = traduction instantanée (Google) ; sinon Gemini avec contexte, qui remplace la première
+  // fast = traduction instantanée ; sinon moteur contextuel, qui remplace la première
   const run = async (fast) => {
     let next = 0;
     const worker = async () => {
@@ -162,7 +162,8 @@ function render() {
   if (!s) { $('#addCard').open = true; return; }
   $('#tip1').hidden = tipSeen;
   $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
-  $('#sEngine').textContent = s.translating ? '' : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'deepl' ? 'Traduit avec DeepL (ligne par ligne)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
+  $('#sEngine').textContent = !s.translating && s.engine === 'google' && geminiOn ? 'Traduction simplifiée : le moteur principal est momentanément indisponible.' : '';
+  $('#sSrc').innerHTML = /^https:\/\/genius\.com\//i.test(s.url || '') ? `Paroles sur <a class="gbadge" href="${esc(s.url)}" target="_blank" rel="noopener"><img src="genius-logo.svg" alt="Genius"></a>` : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
   $('#lyrics').className = 'lyrics' + ($('#showTr').checked ? '' : ' hide-tr');
   $('#lyrics').innerHTML = s.lines.map((l, i) => {
@@ -230,7 +231,7 @@ async function openPop(text, lineIdx, rect) {
   if (wordCache.has(key)) return apply(wordCache.get(key), false);
   const base = { text, target: state.target, source: s.source };
   let smartDone = false;
-  // 1) réponse immédiate (Google), 2) version contextuelle (Gemini) qui la remplace
+  // 1) réponse immédiate (Google), 2) version contextuelle qui la remplace
   api('/api/translate', { ...base, fast: true }).then((r) => { if (!smartDone) apply(r, true); }).catch(() => {});
   try {
     const r = await api('/api/translate', { ...base, context: line.text });
@@ -297,7 +298,7 @@ function suggestWords() {
   s.goal = { size, words: [...keep, ...fresh] };
 }
 
-// Gemini choisit des mots utiles (pas de mots-outils) ; sans Gemini, repli sur une heuristique.
+// Choix des mots utiles (pas de mots-outils) ; sinon repli sur une heuristique.
 async function suggestGoal() {
   const s = song(); const size = Number($('#goalSize').value) || s.goal.size || 8;
   const keep = s.goal.words.filter((w) => w.done);
@@ -464,7 +465,7 @@ let watcher = null;
 function openImport(h) {
   const label = [h.title, h.artist].filter(Boolean).join(' — ');
   dlg.innerHTML = `<button class="x" id="dX" aria-label="Fermer">✕</button>
-    <h2 dir="auto">${esc(label)}</h2><div class="muted small">Importer les paroles en 3 gestes</div>
+    <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="Ouvrir sur Genius"><img src="genius-logo.svg" alt="Genius"></a></h2><div class="muted small">Importer les paroles en 3 gestes</div>
     <ol>
       <li><div><button class="primary" id="dOpen">Ouvrir la page Genius</button>
         <div class="muted small" style="margin-top:4px">Elle s’ouvre dans une petite fenêtre à côté de l’app, qui reste ouverte.</div></div></li>
@@ -517,9 +518,6 @@ $('#mGo').onclick = async () => {
 try {
   const st = await api('/api/status');
   geminiOn = !!st.gemini;
-  $('#engine').textContent = [st.gemini && '✨ Gemini', st.deepl && 'DeepL', !st.gemini && !st.deepl && 'Google Translate'].filter(Boolean).join(' + ');
-  $('#engine').classList.toggle('on', !!(st.gemini || st.deepl));
-  $('#engine').title = st.gemini ? 'Traduction contextuelle par Gemini' : 'Traduction de base. Pour mieux, ajoutez GEMINI_API_KEY ou DEEPL_API_KEY dans le fichier .env';
 } catch {}
 await initLanguages();
 render();

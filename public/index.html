@@ -13,7 +13,6 @@
       <button data-tab="song" class="active">Chanson</button>
       <button data-tab="library">Bibliothèque <span id="libCount" class="badge">0</span></button>
     </nav>
-    <span id="engine" class="pill" title=""></span>
     <label class="lang">Traduire en
       <select id="target"></select>
     </label>
@@ -23,6 +22,7 @@
     <aside class="side">
       <details id="addCard" class="card add" open>
         <summary><span class="plus">＋</span> Nouvelle chanson</summary>
+        <p class="src">Paroles via <a class="gbadge" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a></p>
         <form id="searchForm">
           <input id="q" type="search" placeholder="Titre, artiste… ou lien Genius" autocomplete="off" required>
           <button class="primary">Rechercher sur Genius</button>
@@ -58,6 +58,7 @@
           <div>
             <h1 id="sTitle"></h1>
             <div id="sArtist" class="muted"></div>
+            <div id="sSrc" class="src"></div>
             <div id="sEngine" class="muted small"></div>
           </div>
           <label class="toggle"><input type="checkbox" id="showTr" checked> Afficher la traduction</label>
@@ -97,6 +98,7 @@
     </div>
   </main>
 
+  <footer class="foot">Lyrics Learn n’est pas affilié à Genius. Les paroles appartiennent à leurs auteurs et sont affichées pour l’apprentissage. Genius est une marque de Genius Media Group Inc.</footer>
   <dialog id="dlg" class="dlg"></dialog>
   <div id="pop" class="pop" hidden></div>
   <div id="tip" class="tip" hidden></div>

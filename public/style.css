@@ -136,3 +136,8 @@ kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;bo
   .layout.nosong .center{order:1}.layout.nosong #addCard{order:2}.layout.nosong #songsCard{order:3}
   .layout,.layout:has(#goalSide[hidden]),.layout.nosong,.layout.nosong:has(#goalSide[hidden]){grid-template-columns:minmax(0,1fr)}
 }
+
+.src{display:flex;gap:8px;align-items:center;margin:4px 0 8px;font-size:.85rem;color:var(--muted)}
+.gbadge{display:inline-flex;align-items:center;background:#ffff64;border-radius:6px;padding:4px 9px;line-height:0}
+.gbadge img{height:13px;width:auto;display:block}
+.foot{max-width:1000px;margin:24px auto 28px;padding:0 20px;text-align:center;font-size:.78rem;color:var(--muted)}
