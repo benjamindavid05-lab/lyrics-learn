@@ -19,3 +19,13 @@ La traduction passe par l'endpoint public de Google Translate (sans clé).
 
 Sans jeton, on peut coller directement un lien Genius dans la barre de recherche.
 Les paroles viennent de la page Genius ouverte par l'utilisateur (copier avec ⌘A / ⌘C), jamais d'un accès automatisé du serveur.
+
+## Traduction avec Gemini (gratuit, recommandé)
+
+1. Créez une clé sur https://aistudio.google.com/apikey (gratuit).
+2. Ajoutez dans `.env` : `GEMINI_API_KEY=votre_cle` (modèle optionnel : `GEMINI_MODEL=...`).
+3. Relancez `npm start`. L'en-tête affiche « ✨ Traduction : Gemini ».
+
+La chanson est traduite d'un coup avec son contexte ; les mots le sont avec leur phrase d'origine.
+Sans clé, ou si le quota est atteint, l'app retombe sur Google Translate (vers par vers).
+Voir `.env.example`.

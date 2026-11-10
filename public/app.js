@@ -46,8 +46,10 @@ async function translateSong() {
   const idx = s.lines.map((l, i) => (lineKind(l.text) === 'line' ? i : -1)).filter((i) => i >= 0);
   setStatus('Traduction en cours…');
   try {
-    const { results } = await api('/api/translate-lines', { lines: idx.map((i) => s.lines[i].text), target: state.target, source: s.source === 'auto' ? 'auto' : s.source });
-    results.forEach((r, k) => { const l = s.lines[idx[k]]; l.tr = r.text; l.rm = r.translit; if (r.source && s.source === 'auto') s.source = r.source; });
+    const { results, engine, source, warning } = await api('/api/translate-lines', { lines: idx.map((i) => s.lines[i].text), target: state.target, source: s.source });
+    results.forEach((r, k) => { const l = s.lines[idx[k]]; l.tr = r.text; l.rm = r.translit; });
+    if (source && s.source === 'auto') s.source = source;
+    s.engine = engine; s.warn = warning || '';
     s.target = state.target;
     // retraduire les mots de l'objectif
     await translateGoal();
@@ -56,10 +58,16 @@ async function translateSong() {
   save(); render();
 }
 
+function ctxFor(word) {
+  const n = norm(word);
+  const l = song().lines.find((x) => [...x.text.matchAll(WORD_RE)].some((m) => norm(m[0]) === n));
+  return l ? l.text : '';
+}
+
 async function translateGoal() {
   const s = song(); if (!s || !s.goal.words.length) return;
-  const { results } = await api('/api/translate-lines', { lines: s.goal.words.map((w) => w.word), target: state.target, source: s.source });
-  results.forEach((r, i) => { s.goal.words[i].tr = r.text; });
+  const { results } = await api('/api/translate-words', { items: s.goal.words.map((w) => ({ text: w.word, context: ctxFor(w.word) })), target: state.target, source: s.source });
+  results.forEach((r, i) => { s.goal.words[i].tr = r.text; s.goal.words[i].note = r.note || ''; });
 }
 
 // ---------- rendu des paroles ----------
@@ -84,6 +92,7 @@ function render() {
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
   if (!s) return;
   $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
+  $('#sEngine').textContent = s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
   $('#lyrics').className = 'lyrics' + ($('#showTr').checked ? '' : ' hide-tr');
   $('#lyrics').innerHTML = s.lines.map((l, i) => {
@@ -104,7 +113,7 @@ function renderGoal() {
   $('#progText').textContent = ws.length ? `${done} / ${ws.length} mots appris${done === ws.length ? ' 🎉' : ''}` : 'Aucun objectif : cliquez sur « Suggérer ».';
   $('#goalList').innerHTML = ws.map((w, i) => `<li class="${w.done ? 'done' : ''}">
     <input type="checkbox" data-i="${i}" ${w.done ? 'checked' : ''} aria-label="appris">
-    <span class="g"><b dir="auto">${esc(w.word)}</b><span class="gt muted">${esc(w.tr || '…')}</span></span>
+    <span class="g"><b dir="auto">${esc(w.word)}</b><span class="gt muted">${esc(w.tr || '…')}</span>${w.note ? `<small class="muted">💡 ${esc(w.note)}</small>` : ''}</span>
     <button data-rm="${i}" title="Retirer">✕</button></li>`).join('');
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
 }
@@ -133,6 +142,7 @@ async function openPop(text, lineIdx, rect) {
     const single = !/\s/.test(text.trim());
     pop.innerHTML = `<div class="t" dir="auto">${esc(text)}</div>
       <div class="r">${popCtx.tr ? esc(popCtx.tr) : 'Traduction…'}${popCtx.rm ? ` <small class="muted">· ${esc(popCtx.rm)}</small>` : ''}</div>
+      ${popCtx.note ? `<div class="small">💡 ${esc(popCtx.note)}</div>` : ''}
       <div class="ctx" dir="auto">« ${esc(line.text)} »</div>
       <div class="row"><button class="primary" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? '✓ Enregistré' : '💾 Enregistrer'}</button>
       ${single ? `<button class="secondary" id="pGoal">${inGoal ? 'Retirer de l’objectif' : '🎯 Ajouter à l’objectif'}</button>` : ''}
@@ -140,9 +150,9 @@ async function openPop(text, lineIdx, rect) {
   };
   draw();
   try {
-    const r = await api('/api/translate', { text, target: state.target, source: s.source });
+    const r = await api('/api/translate', { text, target: state.target, source: s.source, context: line.text });
     if (popCtx?.text !== text) return;
-    popCtx.tr = r.text; popCtx.rm = r.translit; draw();
+    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; draw();
   } catch (e) { popCtx.tr = '⚠ ' + e.message; draw(); }
 }
 
@@ -382,5 +392,9 @@ $('#mGo').onclick = async () => {
   $('#mLyrics').value = '';
 };
 
+try {
+  const st = await api('/api/status');
+  $('#engine').textContent = st.gemini ? '✨ Traduction : Gemini' : 'Traduction : Google (ajoutez GEMINI_API_KEY pour une meilleure qualité)';
+} catch {}
 await initLanguages();
 render();
