@@ -431,12 +431,20 @@ const ensureMedia = (s) => { if (s && !s.mediaLoaded && !s.finding) loadMedia(s)
 // ---------- surlignage synchronisé avec la musique (mot à mot) ----------
 let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
 let follow = true; try { follow = localStorage.getItem('ll_follow') !== '0'; } catch {}
-function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; clearPlaying(); }
+function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerSeen = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
 function clearPlaying() {
   if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
 }
+let manualOn = false, manualSong = '', playerSeen = false;
+// positions envoyées par le lecteur (Spotify, YouTube, SoundCloud)
 function onTick(pos, playing, dur) {
+  const s0 = song();
+  if (manualOn && s0 && manualSong === s0.id) return; // mode manuel : l'horloge interne prend le relais
+  if (!playerSeen) { playerSeen = true; if (s0) renderSyncBar(s0); }
+  feed(pos, playing, dur);
+}
+function feed(pos, playing, dur) {
   syncPos = pos; syncAt = performance.now(); syncPlaying = playing;
   const s = song();
   // la version du minutage doit avoir la même durée que le morceau joué : sinon on en cherche une autre
@@ -488,22 +496,38 @@ function renderSyncBar(s, p) {
   if (!p) p = s.playerPref && s.players[s.playerPref];
   if (!p) { bar.hidden = true; return; }
   let html = '';
-  if (!canSync(p.provider)) html = `<span>${esc(t('sync.unsupported'))}</span>`;
-  else if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
+  const ready = s.sync && s.sync.v === 2 && s.sync.times;
+  if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
   else if (s.sync.none) html = `<span>${esc(t('sync.none'))}</span>`;
-  else {
+  else if (ready) {
     const exactShare = s.sync.exactLines / Math.max(1, s.sync.total);
     const mode = exactShare >= 0.6 ? t('sync.exact') : t('sync.approx');
-    html = `<span class="syncon"><b>♪</b> ${esc(mode)}</span>
+    const mine = manualOn && manualSong === s.id;
+    const link = canSync(p.provider)
+      ? (mine ? `<span class="syncst"><b class="dot man"></b>${esc(t('sync.manualOn'))}</span>` : playerSeen ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.connected'))}</span>` : `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.waiting'))}</span>`)
+      : `<span class="syncst"><b class="dot man"></b>${esc(t('sync.unsupported'))}</span>`;
+    const manual = mine
+      ? `<button type="button" class="btn sm" data-man="toggle">${syncPlaying ? '⏸ ' + esc(t('sync.pause')) : '▶ ' + esc(t('sync.resume'))}</button> <button type="button" class="link" data-man="restart">↺ ${esc(t('sync.restart'))}</button> <button type="button" class="link" data-man="off">✕ ${esc(t('sync.auto'))}</button>`
+      : `<button type="button" class="btn sm${!canSync(p.provider) || !playerSeen ? ' solid' : ''}" data-man="on" title="${esc(t('sync.manualTip'))}">▶ ${esc(t('sync.manual'))}</button>`;
+    html = `<span class="syncon"><b>♪</b> ${esc(mode)}</span>${link}<span class="syncman">${manual}</span>
     <span class="syncoff"><button type="button" class="link" data-align="1" title="${esc(t('sync.alignTip'))}">${esc(t('sync.align'))}</button>
       <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${(s.syncOff || 0) > 0 ? '+' : ''}${(s.syncOff || 0).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
   }
   bar.innerHTML = html; bar.hidden = false;
-  $('#followWrap').hidden = !(s.sync && s.sync.times && s.sync.v === 2);
+  $('#followWrap').hidden = !ready;
   $('#follow').checked = follow;
 }
 $('#syncBar').addEventListener('click', (e) => {
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
+  const man = e.target.closest('[data-man]');
+  if (man) {
+    const k = man.dataset.man;
+    if (k === 'on') { manualOn = true; manualSong = s.id; feed(0, true, 0); }
+    else if (k === 'toggle') { if (syncPlaying) feed(currentPos(), false, 0); else feed(syncPos, true, 0); }
+    else if (k === 'restart') feed(0, true, 0);
+    else if (k === 'off') { manualOn = false; manualSong = ''; syncPlaying = false; clearPlaying(); }
+    renderSyncBar(s); return;
+  }
   const a = e.target.closest('[data-align]');
   if (a) {
     // « Cette ligne est chantée maintenant » : on aligne le minutage sur la ligne sélectionnée (clic sur un mot de cette ligne)
@@ -538,7 +562,7 @@ function renderPlayer() {
     const h = p && frameHeight(p);
     stopSync();
     const spTrack = p && p.provider === 'Spotify' && /\/embed\/track\/([A-Za-z0-9]+)/.exec(p.src);
-    const src = p && p.kind === 'yt' ? p.src + (p.src.includes('?') ? '&' : '?') + 'enablejsapi=1&playsinline=1' : p && p.src;
+    const src = p && p.kind === 'yt' ? p.src + (p.src.includes('?') ? '&' : '?') + 'enablejsapi=1&playsinline=1&origin=' + encodeURIComponent(location.origin) : p && p.src;
     const iframeHtml = (u) => `<iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(u)}" ${h ? `height="${h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>`;
     $('#pframe').innerHTML = p

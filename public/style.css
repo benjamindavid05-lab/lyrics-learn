@@ -737,3 +737,10 @@ summary:hover{transform:translateX(3px)}
   main,main *,.dlg[open],.dlg[open]::backdrop,.tip,.tour-card,.ripple,#wordPanel.open{animation:none!important}
   *{transition-duration:.01ms!important}
 }
+
+.syncst{display:inline-flex;align-items:center;gap:7px;color:var(--ink)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dim)}
+.dot.ok{background:#2ecc71;box-shadow:0 0 0 4px rgba(46,204,113,.2)}
+.dot.wait{background:var(--c2);animation:pulse 1.6s ease-out infinite}
+.dot.man{background:var(--c4)}
+.syncman{display:inline-flex;align-items:center;gap:12px}
