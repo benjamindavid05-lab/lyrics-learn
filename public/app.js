@@ -40,6 +40,8 @@ async function addSong({ title, artist, url, lyrics }) {
   translateSong(); // en arrière-plan : la chanson s'affiche tout de suite
 }
 
+let geminiOn = false;
+
 async function translateSong() {
   const s = song(); if (!s) return;
   const idx = s.lines.map((l, i) => (lineKind(l.text) === 'line' ? i : -1)).filter((i) => i >= 0);
@@ -47,29 +49,65 @@ async function translateSong() {
   const CHUNK = 30, chunks = [];
   for (let i = 0; i < idx.length; i += CHUNK) chunks.push(idx.slice(i, i + CHUNK));
   const myTarget = state.target;
-  s.translating = true; s.done = 0; s.total = idx.length; s.engine = ''; s.warn = '';
-  const engines = new Set();
+  s.lines.forEach((l) => { l.smart = false; });
+  s.words = {}; s.wordsTarget = ''; s.engine = ''; s.warn = ''; s.translating = true;
   render();
-  let next = 0;
-  const worker = async () => {
-    while (next < chunks.length) {
-      const part = chunks[next++];
-      try {
-        const r = await api('/api/translate-lines', { lines: part.map((i) => s.lines[i].text), context: all, target: myTarget, source: s.source });
-        if (state.target !== myTarget) return;
-        r.results.forEach((x, k) => { const l = s.lines[part[k]]; l.tr = x.text; l.rm = x.translit; });
-        if (r.source && s.source === 'auto') s.source = r.source;
-        engines.add(r.engine); if (r.warning) s.warn = r.warning;
-      } catch (e) { s.warn = e.message; }
-      s.done += part.length;
-      s.engine = engines.size > 1 ? 'mixed' : [...engines][0] || '';
-      if (state.current === s.id) render();
-    }
+  const engines = new Set();
+  // fast = traduction instantanée (Google) ; sinon Gemini avec contexte, qui remplace la première
+  const run = async (fast) => {
+    let next = 0;
+    const worker = async () => {
+      while (next < chunks.length) {
+        const part = chunks[next++];
+        try {
+          const r = await api('/api/translate-lines', { lines: part.map((i) => s.lines[i].text), context: all, target: myTarget, source: s.source, fast });
+          if (state.target !== myTarget) return;
+          r.results.forEach((x, k) => {
+            const l = s.lines[part[k]];
+            if (fast && l.smart) return;
+            l.tr = x.text; l.rm = x.translit; l.smart = !fast && r.engine === 'gemini';
+          });
+          if (r.source && s.source === 'auto') s.source = r.source;
+          if (!fast) { engines.add(r.engine); if (r.warning) s.warn = r.warning; }
+        } catch (e) { if (!fast) s.warn = e.message; }
+        if (state.current === s.id && state.target === myTarget) render();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, worker));
   };
-  await Promise.all(Array.from({ length: Math.min(3, chunks.length) }, worker));
+  const fastDone = run(true);
+  await run(false);
+  s.engine = engines.has('gemini') ? (engines.has('google') ? 'mixed' : 'gemini') : 'google';
+  if (geminiOn && state.target === myTarget) prefetchWords(s, myTarget); // sans attendre la fin du lot rapide
+  await fastDone;
   s.target = myTarget; s.translating = false;
   save(); if (state.current === s.id) render();
   try { await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
+}
+
+// Précharge la traduction contextuelle de tous les mots : un clic est ensuite instantané.
+async function prefetchWords(s, target) {
+  const seen = new Map();
+  for (const l of s.lines) if (lineKind(l.text) === 'line') for (const m of l.text.matchAll(WORD_RE)) {
+    const n = norm(m[0]);
+    if (!seen.has(n) && [...n].length >= 2 && !/^\d+$/.test(n)) seen.set(n, { text: m[0], context: l.text });
+  }
+  const entries = [...seen], CH = 80, parts = [];
+  for (let i = 0; i < entries.length; i += CH) parts.push(entries.slice(i, i + CH));
+  const words = {};
+  let next = 0;
+  const worker = async () => {
+    while (next < parts.length) {
+      const part = parts[next++];
+      try {
+        const r = await api('/api/translate-words', { items: part.map(([, v]) => v), target, source: s.source, llmOnly: true });
+        r.results.forEach((x, k) => { words[part[k][0]] = { text: x.text, translit: x.translit, note: x.note }; });
+      } catch { /* on retombe sur la traduction à la demande */ }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(2, parts.length) }, worker));
+  if (state.target !== target) return;
+  s.words = words; s.wordsTarget = target; save();
 }
 
 function ctxFor(word) {
@@ -114,7 +152,7 @@ function render() {
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
   if (!s) return;
   $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
-  $('#sEngine').textContent = s.translating ? `⏳ Traduction en cours… ${s.done || 0}/${s.total || 0} lignes` : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
+  $('#sEngine').textContent = s.translating ? '' : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
   $('#lyrics').className = 'lyrics' + ($('#showTr').checked ? '' : ' hide-tr');
   $('#lyrics').innerHTML = s.lines.map((l, i) => {
@@ -164,7 +202,7 @@ async function openPop(text, lineIdx, rect) {
     const inGoal = s.goal.words.some((g) => norm(g.word) === norm(text));
     const single = !/\s/.test(text.trim());
     pop.innerHTML = `<div class="t" dir="auto">${esc(text)}</div>
-      <div class="r">${popCtx.tr ? esc(popCtx.tr) : 'Traduction…'}${popCtx.rm ? ` <small class="muted">· ${esc(popCtx.rm)}</small>` : ''}${popCtx.refining ? ' <small class="muted">✨ affinage…</small>' : ''}</div>
+      <div class="r">${popCtx.tr ? esc(popCtx.tr) : 'Traduction…'}${popCtx.rm ? ` <small class="muted">· ${esc(popCtx.rm)}</small>` : ''}</div>
       ${popCtx.note ? `<div class="small">💡 ${esc(popCtx.note)}</div>` : ''}
       <div class="ctx" dir="auto">« ${esc(line.text)} »</div>
       <div class="row"><button class="primary" id="pSave" ${inLib ? 'disabled' : ''}>${inLib ? '✓ Enregistré' : '💾 Enregistrer'}</button>
@@ -177,6 +215,8 @@ async function openPop(text, lineIdx, rect) {
     if (popCtx?.text !== text) return;
     popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; popCtx.refining = refining; draw();
   };
+  const pre = !/\s/.test(text.trim()) && s.wordsTarget === state.target && s.words?.[norm(text)];
+  if (pre) return apply(pre, false);
   if (wordCache.has(key)) return apply(wordCache.get(key), false);
   const base = { text, target: state.target, source: s.source };
   let smartDone = false;
@@ -429,6 +469,7 @@ $('#mGo').onclick = async () => {
 
 try {
   const st = await api('/api/status');
+  geminiOn = !!st.gemini;
   $('#engine').textContent = st.gemini ? '✨ Traduction : Gemini' : 'Traduction : Google (ajoutez GEMINI_API_KEY pour une meilleure qualité)';
 } catch {}
 await initLanguages();

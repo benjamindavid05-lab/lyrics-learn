@@ -53,7 +53,7 @@ async function api(req, res, url) {
         const ctx = Array.isArray(b.context) ? b.context.slice(0, 600).map(String) : [];
         if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
         let warning = '';
-        if (hasLLM()) {
+        if (b.fast !== true && hasLLM()) {
           try {
             const r = await translateLyrics(lines, LANGUAGES[b.target], b.source || 'auto', ctx);
             return json(res, 200, { ...r, engine: 'gemini' });
@@ -68,6 +68,7 @@ async function api(req, res, url) {
         if (b.fast !== true && hasLLM()) {
           try { return json(res, 200, { results: await translateItems(items, LANGUAGES[b.target], b.source || 'auto'), engine: 'gemini' }); } catch { /* repli */ }
         }
+        if (b.llmOnly) throw new Error('Gemini indisponible');
         return json(res, 200, { results: await translateMany(items.map((x) => x.text), b.target, b.source || 'auto'), engine: 'google' });
       }
       if (url.pathname === '/api/translate') {
