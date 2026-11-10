@@ -5,6 +5,7 @@ services:
     name: lyrics-learn
     runtime: node
     plan: free
+    region: frankfurt          # serveur en Europe
     buildCommand: echo "rien à construire"
     startCommand: node server.js
     autoDeploy: true
@@ -12,11 +13,13 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-      - key: APP_PASSWORD   # mot de passe d'accès au site (identifiant : ce que vous voulez)
+      - key: APP_PASSWORD      # mot de passe d'accès au site (identifiant : ce que vous voulez)
         sync: false
-      - key: GEMINI_API_KEY
+      - key: GEMINI_API_KEY    # traduction contextuelle
         sync: false
-      - key: GENIUS_TOKEN
+      - key: GENIUS_TOKEN      # recherche de chansons
         sync: false
-      - key: DEEPL_API_KEY
+      - key: CONTACT_EMAIL     # affiché sur la page de confidentialité
         sync: false
+      # À ajouter plus tard dans le tableau de bord si besoin : DEEPL_API_KEY, GEMINI_MODEL,
+      # LIMIT_PER_HOUR, LIMIT_PER_DAY, LIMIT_GLOBAL_PER_DAY
