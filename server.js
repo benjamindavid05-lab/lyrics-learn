@@ -17,7 +17,7 @@ try { // mini chargeur .env (GENIUS_TOKEN=...)
   }
   console.log(`.env lu : ${found.length ? found.join(', ') : 'aucune clé trouvée'}`);
   if (/^\{\\rtf/.test(raw.trim())) console.log('⚠ .env est en « texte enrichi » (TextEdit) : Format > Convertir au format texte, puis enregistrez.');
-} catch { console.log('.env introuvable : copiez .env.example en .env'); }
+} catch { console.log('Pas de fichier .env : utilisation des variables d’environnement.'); }
 const searchCache = new Map(); // évite de rappeler Genius pour la même recherche
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), 'public');
 const PORT = process.env.PORT || 3000;
@@ -34,7 +34,32 @@ async function readBody(req) {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {};
 }
 
+// Limites d'usage par personne (adresse IP) : actives dès que l'app est hébergée (RENDER / APP_PASSWORD) ou avec RATE_LIMIT=on.
+const HOSTED = process.env.RATE_LIMIT !== 'off' && !!(process.env.RENDER || process.env.APP_PASSWORD || process.env.RATE_LIMIT === 'on');
+const LIM = { hour: +process.env.LIMIT_PER_HOUR || 250, day: +process.env.LIMIT_PER_DAY || 1000, global: +process.env.LIMIT_GLOBAL_PER_DAY || 8000 };
+const buckets = new Map();
+let globalCount = { day: '', n: 0 };
+const COUNTED = new Set(['/api/translate-lines', '/api/translate-words', '/api/translate', '/api/suggest-words', '/api/search', '/api/lyrics']);
+const clientIp = (req) => ((process.env.RENDER || process.env.TRUST_PROXY) ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '') || req.socket.remoteAddress || 'inconnu';
+function rateLimit(req) {
+  if (!HOSTED) return null;
+  const now = Date.now(), today = new Date().toISOString().slice(0, 10);
+  if (globalCount.day !== today) globalCount = { day: today, n: 0 };
+  if (globalCount.n >= LIM.global) return 'Le service a atteint sa limite quotidienne. Réessayez demain.';
+  const ip = clientIp(req);
+  let b = buckets.get(ip);
+  if (!b) { b = { hStart: now, h: 0, day: today, d: 0 }; buckets.set(ip, b); }
+  if (now - b.hStart > 3600e3) { b.hStart = now; b.h = 0; }
+  if (b.day !== today) { b.day = today; b.d = 0; }
+  if (b.h >= LIM.hour) return `Limite horaire atteinte : réessayez dans ${Math.max(1, Math.ceil((3600e3 - (now - b.hStart)) / 60e3))} min.`;
+  if (b.d >= LIM.day) return 'Limite quotidienne atteinte : réessayez demain.';
+  b.h++; b.d++; globalCount.n++;
+  if (buckets.size > 5000) for (const [k, x] of buckets) if (now - x.hStart > 7200e3) buckets.delete(k);
+  return null;
+}
+
 async function api(req, res, url) {
+  if (COUNTED.has(url.pathname)) { const limited = rateLimit(req); if (limited) return json(res, 429, { error: limited }); }
   try {
     if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel() });
     if (url.pathname === '/api/genius-check') {
@@ -150,7 +175,11 @@ http.createServer(async (req, res) => {
   const file = path.resolve(root, rel);
   if (!file.startsWith(root + path.sep)) { res.writeHead(403); return res.end(); }
   try {
-    const data = await fs.readFile(file);
+    let data = await fs.readFile(file);
+    if (path.basename(file) === 'confidentialite.html') {
+      const contact = process.env.CONTACT_EMAIL ? `<a href="mailto:${process.env.CONTACT_EMAIL.replace(/[^A-Za-z0-9@._+-]/g, '')}">${process.env.CONTACT_EMAIL.replace(/[^A-Za-z0-9@._+-]/g, '')}</a>` : 'le propriétaire du site (coordonnées à renseigner par la variable CONTACT_EMAIL)';
+      data = Buffer.from(data.toString().replaceAll('{{CONTACT}}', contact));
+    }
     res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
     res.end(data);
   } catch { res.writeHead(404); res.end('Not found'); }
