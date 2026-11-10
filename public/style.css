@@ -99,3 +99,40 @@ kbd{background:var(--bg);border:1px solid var(--line);border-bottom-width:2px;bo
 @keyframes t{0%,50%{opacity:0}55%,85%{opacity:1}95%,100%{opacity:0}}
 @media(prefers-reduced-motion:reduce){.demo *{animation:none!important}.demo .sel{transform:none}}
 [hidden]{display:none!important}
+
+/* --- refonte design & parcours --- */
+.pill{font-size:.8rem;padding:3px 10px;border-radius:99px;background:var(--bg);border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.on{color:var(--accent);border-color:var(--accent)}
+.add{padding:0}.add>summary{list-style:none;cursor:pointer;padding:14px 16px;font-weight:700;color:var(--ink);display:flex;gap:8px;align-items:center}
+.add>summary::-webkit-details-marker{display:none}
+.add .plus{display:grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--accent);color:#fff;font-weight:700;line-height:1}
+.add[open]>summary{padding-bottom:6px}.add>form,.add>ul,.add>details,.add>p{margin-left:16px;margin-right:16px}.add>p:last-child{margin-bottom:14px}.add>form{margin-top:6px}
+.layout.nosong{grid-template-columns:minmax(0,620px);justify-content:center}
+.layout.nosong .center{order:1}.layout.nosong .side{order:2;position:static}
+.layout.nosong .empty{text-align:center;padding:28px 20px}.layout.nosong .empty ul{text-align:left;display:inline-block}
+.layout.nosong .add>summary{font-size:1.1rem}
+/* mots de l'objectif : relief discret */
+.w.goal{background:rgba(255,213,74,.38);font-weight:600;box-shadow:none;border-bottom:2px solid rgba(255,190,0,.9);border-radius:3px 3px 0 0}
+.w.goal.done{background:rgba(54,162,105,.22);border-bottom-color:#36a269}
+.w.saved:not(.goal){border-bottom:2px solid #36a269}
+.hint{display:flex;justify-content:space-between;gap:10px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:8px 12px;margin-bottom:14px;font-size:.9rem;color:var(--muted)}
+.hint button{border:0;background:none;color:var(--muted)}
+/* liste d'objectif : mots alignés à gauche, quelle que soit la langue */
+.goal li{align-items:flex-start}.goal .g{text-align:left;direction:ltr}
+.goal b{font-size:1.05rem;text-align:left}.goal .gt{display:block}.goal small{display:block}
+.goal-ctl select{padding:6px 8px}
+.lib .e{text-align:left;direction:ltr}.lib li{padding:12px 8px}
+@media(max-width:1000px){
+  .top{gap:10px;padding:10px 14px}.tabs{order:3;flex-basis:100%}
+  .layout{padding:12px}.add:not([open])>summary{padding:12px 14px}
+  .song-head{flex-wrap:wrap}
+  .orig{font-size:1.2rem}
+}
+
+.layout.nosong,.layout.nosong:has(#goalSide[hidden]){grid-template-columns:minmax(0,640px);justify-content:center}
+@media(max-width:1000px){
+  .layout .side{display:contents}
+  .layout #addCard{order:1}.layout .center{order:2}.layout #goalSide>section{order:3}.layout #songsCard{order:4}
+  .layout.nosong .center{order:1}.layout.nosong #addCard{order:2}.layout.nosong #songsCard{order:3}
+  .layout,.layout:has(#goalSide[hidden]),.layout.nosong,.layout.nosong:has(#goalSide[hidden]){grid-template-columns:minmax(0,1fr)}
+}

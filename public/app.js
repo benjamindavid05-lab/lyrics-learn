@@ -37,6 +37,8 @@ async function addSong({ title, artist, url, lyrics }) {
   state.songs[id] = { id, title, artist, url: url || '', lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
   state.current = id;
   save();
+  $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
+  $('#addCard').open = false;
   translateSong(); // en arrière-plan : la chanson s'affiche tout de suite
 }
 
@@ -82,6 +84,7 @@ async function translateSong() {
   await fastDone;
   s.target = myTarget; s.translating = false;
   save(); if (state.current === s.id) render();
+  if (!s.goal.words.length && !s.goalAuto && state.current === s.id) { s.goalAuto = true; suggestWords(); save(); renderGoal(); }
   try { await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
 }
 
@@ -146,11 +149,17 @@ function wordsHtml(text, lineIdx) {
   return out + esc(text.slice(last));
 }
 
+let tipSeen = false;
+try { tipSeen = localStorage.getItem('ll_tip1') === '1'; } catch {}
+$('#tip1x').onclick = () => { tipSeen = true; try { localStorage.setItem('ll_tip1', '1'); } catch {} $('#tip1').hidden = true; };
+
 function render() {
   renderSongList(); renderLibrary();
   const s = song();
   $('#empty').hidden = !!s; $('#songView').hidden = !s; $('#goalSide').hidden = !s;
-  if (!s) return;
+  $('#songTab').classList.toggle('nosong', !s);
+  if (!s) { $('#addCard').open = true; return; }
+  $('#tip1').hidden = tipSeen;
   $('#sTitle').textContent = s.title; $('#sArtist').textContent = s.artist;
   $('#sEngine').textContent = s.translating ? '' : s.engine === 'mixed' ? 'Traduction Gemini + Google (certains lots en secours)' : s.engine === 'gemini' ? '✨ Traduit avec Gemini (contexte de la chanson)' : s.engine === 'google' ? 'Traduction Google (vers par vers)' + (s.warn ? ' — ' + s.warn : '') : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
@@ -170,10 +179,10 @@ function renderGoal() {
   $('#goalSize').value = s.goal.size;
   const done = ws.filter((w) => w.done).length;
   $('#bar').style.width = ws.length ? `${(done / ws.length) * 100}%` : '0';
-  $('#progText').textContent = ws.length ? `${done} / ${ws.length} mots appris${done === ws.length ? ' 🎉' : ''}` : 'Aucun objectif : cliquez sur « Suggérer ».';
+  $('#progText').textContent = ws.length ? `${done} / ${ws.length} mots appris${done === ws.length ? ' 🎉' : ''}` : 'Choisissez les mots à retenir : « Suggérer » en propose.';
   $('#goalList').innerHTML = ws.map((w, i) => `<li class="${w.done ? 'done' : ''}">
     <input type="checkbox" data-i="${i}" ${w.done ? 'checked' : ''} aria-label="appris">
-    <span class="g"><b dir="auto">${esc(w.word)}</b><span class="gt muted">${esc(w.tr || '…')}</span>${w.note ? `<small class="muted">💡 ${esc(w.note)}</small>` : ''}</span>
+    <span class="g"><b><bdi>${esc(w.word)}</bdi></b><span class="gt muted">${esc(w.tr || '…')}</span>${w.note ? `<small class="muted">💡 ${esc(w.note)}</small>` : ''}</span>
     <button data-rm="${i}" title="Retirer">✕</button></li>`).join('');
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
 }
@@ -306,9 +315,10 @@ function renderLibrary() {
   const q = norm($('#libSearch').value || '');
   const items = state.library.filter((e) => !q || norm(`${e.text} ${e.tr} ${e.title} ${e.artist} ${e.sentence}`).includes(q));
   $('#libEmpty').hidden = state.library.length > 0;
+  $('#libEmpty').textContent = 'Aucun mot enregistré. Ouvrez une chanson, cliquez sur un mot puis « Enregistrer ».';
   $('#libList').innerHTML = items.map((e) => `<li data-id="${e.id}">
-    <span class="e" dir="auto">${esc(e.text)}</span>
-    <span class="m">${esc(e.tr)}<div class="s">${esc(e.title)} · ${esc(e.artist)}</div></span>
+    <span class="e"><bdi>${esc(e.text)}</bdi></span>
+    <span class="m">${esc(e.tr)}<div class="s">${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
     <button data-del="${e.id}" title="Supprimer">✕</button></li>`).join('');
 }
 $('#libSearch').oninput = renderLibrary;
@@ -470,7 +480,9 @@ $('#mGo').onclick = async () => {
 try {
   const st = await api('/api/status');
   geminiOn = !!st.gemini;
-  $('#engine').textContent = st.gemini ? '✨ Traduction : Gemini' : 'Traduction : Google (ajoutez GEMINI_API_KEY pour une meilleure qualité)';
+  $('#engine').textContent = st.gemini ? '✨ Gemini' : 'Google Translate';
+  $('#engine').classList.toggle('on', !!st.gemini);
+  $('#engine').title = st.gemini ? 'Traduction contextuelle par Gemini' : 'Traduction mot à mot. Pour une meilleure qualité, ajoutez GEMINI_API_KEY dans le fichier .env';
 } catch {}
 await initLanguages();
 render();

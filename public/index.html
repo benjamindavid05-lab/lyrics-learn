@@ -13,7 +13,7 @@
       <button data-tab="song" class="active">Chanson</button>
       <button data-tab="library">Bibliothèque <span id="libCount" class="badge">0</span></button>
     </nav>
-    <span id="engine" class="muted small"></span>
+    <span id="engine" class="pill" title=""></span>
     <label class="lang">Traduire en
       <select id="target"></select>
     </label>
@@ -21,8 +21,8 @@
 
   <main id="songTab" class="layout">
     <aside class="side">
-      <section class="card">
-        <h2>Ajouter une chanson</h2>
+      <details id="addCard" class="card add" open>
+        <summary><span class="plus">＋</span> Nouvelle chanson</summary>
         <form id="searchForm">
           <input id="q" type="search" placeholder="Titre, artiste… ou lien Genius" autocomplete="off" required>
           <button class="primary">Rechercher sur Genius</button>
@@ -36,8 +36,8 @@
           <button id="mGo" class="secondary" type="button">Utiliser ces paroles</button>
         </details>
         <p id="status" class="status" role="status"></p>
-      </section>
-      <section class="card">
+      </details>
+      <section class="card" id="songsCard">
         <h2>Mes chansons</h2>
         <ul id="songList" class="songs"></ul>
       </section>
@@ -45,8 +45,8 @@
 
     <section class="center">
       <div id="empty" class="card empty">
-        <h2>Commencez par une chanson</h2>
-        <p>Recherchez un titre (ou collez un lien Genius) : les paroles sont importées puis traduites.</p>
+        <h2>Apprenez une langue avec vos chansons préférées</h2>
+        <p>Ajoutez une chanson ci-dessous : les paroles sont traduites, et vous choisissez les mots à retenir.</p>
         <ul>
           <li><b>Cliquez</b> un mot, ou <b>sélectionnez</b> une expression, pour la traduire et l’enregistrer.</li>
           <li>Fixez un <b>objectif de mots</b> à apprendre : ils sont mis en relief dans les paroles.</li>
@@ -60,8 +60,9 @@
             <div id="sArtist" class="muted"></div>
             <div id="sEngine" class="muted small"></div>
           </div>
-          <label class="toggle"><input type="checkbox" id="showTr" checked> Traduction</label>
+          <label class="toggle"><input type="checkbox" id="showTr" checked> Afficher la traduction</label>
         </div>
+        <div id="tip1" class="hint" hidden><span>💡 <b>Cliquez</b> sur un mot pour le traduire et l’enregistrer. <b>Sélectionnez</b> plusieurs mots pour une expression.</span><button id="tip1x" aria-label="Fermer">✕</button></div>
         <div id="lyrics" class="lyrics"></div>
       </article>
     </section>
