@@ -48,6 +48,7 @@
     <label class="lang" title="The language the lyrics are translated into." data-i18n-title="lang.tip"><span data-i18n="lang.translateTo">Translate into</span>
       <select id="target"></select>
     </label>
+    <button id="targetGo" class="btn solid sm tgo" type="button" hidden><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="targetGoT"></span></button>
     <button id="helpBtn" class="helpbtn" type="button" aria-label="Help" title="Help" data-i18n-aria="help.btn" data-i18n-title="help.btn">?</button>
     <div class="uilang" role="group" aria-label="Interface language">
       <button type="button" data-lang="en" class="active">EN</button><button type="button" data-lang="fr">FR</button>
@@ -120,6 +121,7 @@
         </div>
         <h1 id="sTitle" class="display"></h1>
         <div class="metarow"><div id="sSrc" class="src"></div><div id="sEngine" class="small"></div></div>
+        <div id="trLoad" class="trload" role="status" aria-live="polite" hidden><span class="eq big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span id="trLoadT"></span><span class="nts" aria-hidden="true"><b>♪</b><b>♫</b><b>♪</b></span></div>
         <div id="player" class="player">
           <div id="ptabs" class="ptabs"></div>
           <div id="pframe"></div>

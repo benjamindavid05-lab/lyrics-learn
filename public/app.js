@@ -26,6 +26,7 @@ async function api(path, body) {
 const setStatus = (m, err) => { const s = $('#status'); s.textContent = m; s.classList.toggle('err', !!err); };
 
 // ---------- langues ----------
+const LANGS_NAME = (c) => document.querySelector(`#target option[value="${c}"]`)?.textContent || c;
 async function initLanguages() {
   const langs = await api('/api/languages');
   // première visite : langue de traduction = langue du navigateur si elle existe, sinon l'anglais
@@ -185,6 +186,9 @@ function render() {
   $('#tip1').hidden = tipSeen;
   $('#sTitle').textContent = s.title;
   $('#sArtist').textContent = [t('kicker.now'), s.artist].filter(Boolean).join(' / ');
+  $('#trLoad').hidden = !s.translating;
+  $('#trLoadT').textContent = t('tr.loading', { lang: LANGS_NAME(state.target) });
+  syncTargetGo();
   $('#sEngine').textContent = !s.translating && s.engine === 'google' && geminiOn ? t('engine.simplified') : '';
   $('#sSrc').innerHTML = /^https:\/\/genius\.com\//i.test(s.url || '') ? `${t('src.lyricsOn')} <a class="gbadge" href="${esc(s.url)}" target="_blank" rel="noopener"><img src="genius-logo.svg" alt="Genius"></a>` : '';
   const dir = RTL.has(state.target) ? 'rtl' : 'ltr';
@@ -729,9 +733,20 @@ document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = ()
 $('#brand').onclick = (e) => { e.preventDefault(); showTab('home'); };
 
 $('#showTr').onchange = render;
-$('#target').onchange = async () => {
+// Le choix de langue se valide avec un bouton ; pendant la traduction, une animation de musique indique que ça charge.
+function syncTargetGo() {
+  const s = song(), btn = $('#targetGo'), picked = $('#target').value;
+  const busy = !!(s && s.translating);
+  btn.hidden = !s || (!busy && picked === state.target && s.target === state.target);
+  btn.disabled = busy; btn.classList.toggle('loading', busy);
+  $('#targetGoT').textContent = busy ? t('tr.going') : t('tr.go');
+}
+$('#target').onchange = syncTargetGo;
+$('#targetGo').onclick = async () => {
+  if (!song() || song().translating) return;
   state.target = $('#target').value; save();
-  if (song()) await translateSong();
+  await translateSong();
+  syncTargetGo();
 };
 $('#songList').addEventListener('click', async (e) => {
   const del = e.target.dataset.del;

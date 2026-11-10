@@ -37,7 +37,25 @@ function pump() {
 }
 
 const BASE = 'https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&dt=rm&dj=0';
+// Deuxième point d'accès Google (autre quota) : utilisé dès que le premier refuse. On le convertit dans la forme du premier.
+const ALT = 'https://clients5.google.com/translate_a/t?client=dict-chrome-ex';
+let mainBlockedUntil = 0;
+async function altCall(target, source, text) {
+  const tl = target === 'zh' ? 'zh-CN' : target;
+  const res = await fetch(`${ALT}&sl=${encodeURIComponent(source)}&tl=${encodeURIComponent(tl)}`, {
+    method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: 'q=' + encodeURIComponent(text), signal: AbortSignal.timeout(12000)
+  });
+  if (res.status === 429 || res.status === 503) throw new Error(`Translation service busy (${res.status})`);
+  if (!res.ok) throw new Error(`Translation unavailable (${res.status})`);
+  const d = await res.json();
+  const first = Array.isArray(d) ? d[0] : null;
+  const out = Array.isArray(first) ? first[0] : first;
+  if (typeof out !== 'string') throw new Error('Translation unavailable (format)');
+  return [[[out, text, null, null, 1]], null, Array.isArray(first) ? first[1] : source];
+}
 async function googleCall(target, source, text) {
+  if (Date.now() < mainBlockedUntil) { try { return await altCall(target, source, text); } catch { mainBlockedUntil = 0; } }
   for (let attempt = 0; attempt < 3; attempt++) {
     if (Date.now() < blockedUntil) throw new Error('Translation service busy (429)');
     const res = await fetch(`${BASE}&sl=${encodeURIComponent(source)}&tl=${encodeURIComponent(target)}`, {
@@ -45,6 +63,8 @@ async function googleCall(target, source, text) {
       body: 'q=' + encodeURIComponent(text), signal: AbortSignal.timeout(12000)
     });
     if (res.status === 429 || res.status === 503) {
+      // premier point d'accès refusé : on passe au second, et on évite le premier pendant 2 minutes
+      try { const r = await altCall(target, source, text); mainBlockedUntil = Date.now() + 120000; return r; } catch { /* on patiente */ }
       const ra = Number(res.headers.get('retry-after')) || 1.2 * (attempt + 1);
       if (attempt === 2) { blockedUntil = Date.now() + 15000; throw new Error(`Translation service busy (${res.status})`); }
       await sleep(Math.min(ra, 4) * 1000);

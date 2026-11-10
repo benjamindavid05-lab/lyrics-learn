@@ -1,7 +1,7 @@
 // Interface bilingue : anglais (par défaut) et français.
 const EN = {
   'nav.home': 'Home', 'nav.read': 'Reading', 'nav.library': 'Library', 'nav.add': '+ Song',
-  'lang.translateTo': 'Translate into',
+  'lang.translateTo': 'Translate into', 'tr.go': 'Translate ✓', 'tr.going': 'Translating…', 'tr.loading': 'Translating the song into {lang}…',
   'home.kicker': 'Learn through music',
   'home.title': 'Learn a language with your favorite songs.',
   'home.lead': 'Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.',
@@ -89,7 +89,7 @@ const EN = {
 
 const FR = {
   'nav.home': 'Accueil', 'nav.read': 'Lecture', 'nav.library': 'Bibliothèque', 'nav.add': '+ Chanson',
-  'lang.translateTo': 'Traduire en',
+  'lang.translateTo': 'Traduire en', 'tr.go': 'Traduire ✓', 'tr.going': 'Traduction…', 'tr.loading': 'Traduction de la chanson en {lang}…',
   'home.kicker': 'Apprendre par la chanson',
   'home.title': 'Apprenez une langue avec vos chansons.',
   'home.lead': 'Importez les paroles, lisez-les avec leur traduction, choisissez les mots à retenir, et retrouvez chacun avec la phrase d’où il vient.',
