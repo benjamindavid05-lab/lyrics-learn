@@ -123,3 +123,22 @@ export async function findTracks({ title, artist }) {
   const [dz, ap, sp, yt] = await Promise.allSettled([deezer(wt, wa), apple(wt, wa), spotify(wt, wa), youtube(wt, wa)]);
   return { deezer: ok(dz), apple: ok(ap), spotify: ok(sp), youtube: ok(yt) };
 }
+
+// Vérifie que les identifiants Spotify fonctionnent (sans jamais les afficher).
+export async function spotifyCheck() {
+  const id = process.env.SPOTIFY_CLIENT_ID, secret = process.env.SPOTIFY_CLIENT_SECRET;
+  if (!id || !secret) return { configured: false, help: 'Add SPOTIFY_CLIENT_ID and SPOTIFY_CLIENT_SECRET in the environment variables.' };
+  const sizes = { clientIdLength: id.length, clientSecretLength: secret.length };
+  try {
+    const r = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST', signal: AbortSignal.timeout(8000),
+      headers: { authorization: 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64'), 'content-type': 'application/x-www-form-urlencoded' },
+      body: 'grant_type=client_credentials'
+    });
+    if (!r.ok) return { configured: true, ok: false, step: 'token', status: r.status, ...sizes, help: r.status === 400 || r.status === 401 ? 'Spotify rejected the Client ID / Client secret: copy both again from the app Settings page (each is 32 characters).' : 'Spotify did not respond normally.' };
+    const j = await r.json();
+    const s = await fetch(`https://api.spotify.com/v1/search?type=track&limit=1&q=${q('track:Never Gonna Give You Up artist:Rick Astley')}`, { headers: { authorization: 'Bearer ' + j.access_token }, signal: AbortSignal.timeout(8000) });
+    const body = s.ok ? await s.json() : null;
+    return { configured: true, ok: s.ok, step: 'search', status: s.status, ...sizes, found: body?.tracks?.items?.[0]?.name || '', help: s.ok ? 'Spotify search works.' : 'Token accepted, but the search was refused: Spotify may be restricting this app.' };
+  } catch (e) { return { configured: true, ok: false, error: e.message, ...sizes }; }
+}

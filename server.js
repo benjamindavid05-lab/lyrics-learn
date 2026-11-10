@@ -7,7 +7,7 @@ import { fetchGenius } from './genius.js';
 import { translate, translateMany, LANGUAGES } from './translate.js';
 import { deeplOn, deeplSupports, deeplTranslate, deeplCheck } from './deepl.js';
 import { extractMedia } from './genius-media.js';
-import { findTracks } from './find-track.js';
+import { findTracks, spotifyCheck } from './find-track.js';
 import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems, suggestVocab, diagnose } from './llm.js';
 
 try { // mini chargeur .env (GENIUS_TOKEN=...)
@@ -66,6 +66,7 @@ async function api(req, res, url) {
   if (COUNTED.has(url.pathname)) { const limited = rateLimit(req); if (limited) return json(res, 429, { error: limited }); }
   try {
     if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel() });
+    if (url.pathname === '/api/spotify-check') return json(res, 200, await spotifyCheck());
     if (url.pathname === '/api/find-track') {
       // Retrouve le morceau sur Deezer, Apple Music (et Spotify / YouTube si des clés sont configurées) pour les lecteurs intégrés
       const title = (url.searchParams.get('title') || '').trim().slice(0, 160), artist = (url.searchParams.get('artist') || '').trim().slice(0, 160);
