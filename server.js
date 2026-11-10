@@ -187,7 +187,7 @@ function authorized(req) {
 
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok'); }
+  if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok ' + String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7)); } // version en ligne, visible sans mot de passe
   if (!authorized(req)) { res.writeHead(401, { 'www-authenticate': 'Basic realm="Lyrics Learn", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' }); return res.end('Mot de passe requis'); }
   if (url.pathname.startsWith('/api/')) return api(req, res, url);
   const rel = url.pathname === '/' ? 'index.html' : decodeURIComponent(url.pathname).replace(/^\/+/, '');
