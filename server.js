@@ -4,7 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fetchGenius } from './genius.js';
 import { translate, translateMany, LANGUAGES } from './translate.js';
-import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems } from './llm.js';
+import { hasLLM, llmConfigured, llmModel, translateLyrics, translateItems, suggestVocab, diagnose } from './llm.js';
 
 try { // mini chargeur .env (GENIUS_TOKEN=...)
   for (const l of (await fs.readFile(new URL('./.env', import.meta.url), 'utf8')).split('\n')) {
@@ -29,6 +29,7 @@ async function readBody(req) {
 async function api(req, res, url) {
   try {
     if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), model: llmModel() });
+    if (url.pathname === '/api/gemini-check') return json(res, 200, await diagnose());
     if (url.pathname === '/api/languages') return json(res, 200, LANGUAGES);
     if (url.pathname === '/api/search') {
       const token = process.env.GENIUS_TOKEN;
@@ -61,6 +62,14 @@ async function api(req, res, url) {
         }
         const results = await translateMany(lines, b.target, b.source || 'auto');
         return json(res, 200, { results, source: results.find((r) => r.source)?.source || '', engine: 'google', warning });
+      }
+      if (url.pathname === '/api/suggest-words') {
+        if (!LANGUAGES[b.target]) throw new Error('Langue cible non supportée');
+        if (!hasLLM()) return json(res, 200, { words: null });
+        try {
+          const words = await suggestVocab(Array.isArray(b.lines) ? b.lines.slice(0, 400).map(String) : [], LANGUAGES[b.target], b.source || 'auto', Math.min(Number(b.n) || 8, 25), Array.isArray(b.exclude) ? b.exclude.slice(0, 100).map(String) : []);
+          return json(res, 200, { words });
+        } catch { return json(res, 200, { words: null }); }
       }
       if (url.pathname === '/api/translate-words') {
         const items = Array.isArray(b.items) ? b.items.slice(0, 60).map((x) => ({ text: String(x.text), context: String(x.context || '') })) : [];

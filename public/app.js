@@ -84,8 +84,9 @@ async function translateSong() {
   await fastDone;
   s.target = myTarget; s.translating = false;
   save(); if (state.current === s.id) render();
-  if (!s.goal.words.length && !s.goalAuto && state.current === s.id) { s.goalAuto = true; suggestWords(); save(); renderGoal(); }
-  try { await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
+  let autoMode = '';
+  if (!s.goal.words.length && !s.goalAuto && state.current === s.id) { s.goalAuto = true; autoMode = await suggestGoal(); save(); renderGoal(); }
+  try { if (autoMode !== 'llm') await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
 }
 
 // Précharge la traduction contextuelle de tous les mots : un clic est ensuite instantané.
@@ -282,23 +283,52 @@ function suggestWords() {
   const s = song();
   const counts = new Map(), forms = new Map();
   for (const l of s.lines) if (lineKind(l.text) === 'line') for (const m of l.text.matchAll(WORD_RE)) {
-    const n = norm(m[0]); if ([...n].length < 3 || /^\d+$/.test(n)) continue;
+    const n = norm(m[0]); if ([...n].length < (/[\u3040-\u30ff\u3400-\u9fff\uac00-\ud7af]/.test(n) ? 2 : 4) || /^\d+$/.test(n)) continue;
     counts.set(n, (counts.get(n) || 0) + 1); if (!forms.has(n)) forms.set(n, m[0]);
   }
   const known = new Set(state.library.map((e) => norm(e.text)));
   const kept = new Map(s.goal.words.map((w) => [norm(w.word), w]));
   const ranked = [...counts].filter(([n]) => !known.has(n) && !kept.has(n))
     // mots présents plusieurs fois (refrain) mais pas omniprésents, plus longs = plus riches
-    .map(([n, c]) => [n, Math.min(c, 4) + [...n].length * 0.35 + Math.random() * 0.6]).sort((a, b) => b[1] - a[1]);
+    .map(([n, c]) => [n, Math.min(c, 2) + [...n].length * 0.5 + Math.random() * 0.6]).sort((a, b) => b[1] - a[1]);
   const size = Number($('#goalSize').value);
   const keep = s.goal.words.filter((w) => w.done);
   const fresh = ranked.slice(0, Math.max(0, size - keep.length)).map(([n]) => ({ word: forms.get(n), tr: '', done: false }));
   s.goal = { size, words: [...keep, ...fresh] };
 }
 
+// Gemini choisit des mots utiles (pas de mots-outils) ; sans Gemini, repli sur une heuristique.
+async function suggestGoal() {
+  const s = song(); const size = Number($('#goalSize').value) || s.goal.size || 8;
+  const keep = s.goal.words.filter((w) => w.done);
+  if (geminiOn && size > keep.length) {
+    try {
+      const r = await api('/api/suggest-words', {
+        lines: s.lines.filter((l) => lineKind(l.text) === 'line').map((l) => l.text), target: state.target, source: s.source,
+        n: size - keep.length, exclude: [...keep.map((w) => w.word), ...state.library.map((e) => e.text)].slice(0, 100)
+      });
+      if (r.words) {
+        const forms = new Map();
+        for (const l of s.lines) for (const m of l.text.matchAll(WORD_RE)) if (!forms.has(norm(m[0]))) forms.set(norm(m[0]), m[0]);
+        const seen = new Set(keep.map((w) => norm(w.word))), fresh = [];
+        for (const w of r.words) {
+          let n = norm(w.word);
+          // tolère une forme sans préfixe collé (ex. hébreu : « בגדים » pour « הבגדים »)
+          if (!forms.has(n)) n = [...forms.keys()].find((k) => k.endsWith(n) && k.length - n.length <= 2) || '';
+          if (!n || seen.has(n)) continue;
+          seen.add(n); fresh.push({ word: forms.get(n), tr: w.tr, note: w.note, done: false });
+        }
+        if (fresh.length >= Math.min(2, size - keep.length)) { s.goal = { size, words: [...keep, ...fresh] }; return 'llm'; }
+      }
+    } catch { /* repli */ }
+  }
+  suggestWords(); return 'heuristic';
+}
+
 $('#suggest').onclick = async () => {
-  suggestWords(); save(); render();
-  try { await translateGoal(); save(); renderGoal(); } catch (e) { setStatus(e.message, true); }
+  $('#progText').textContent = 'Choix des mots…';
+  const mode = await suggestGoal(); save(); render();
+  if (mode !== 'llm') { try { await translateGoal(); save(); renderGoal(); } catch (e) { setStatus(e.message, true); } }
 };
 $('#goalSize').onchange = () => { song().goal.size = Number($('#goalSize').value); save(); };
 $('#quiz').onchange = renderGoal;
