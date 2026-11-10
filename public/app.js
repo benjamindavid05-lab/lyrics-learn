@@ -1,5 +1,6 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
+import { SAMPLE_SONG, howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RTL = new Set(['ar', 'he', 'fa', 'ur']);
@@ -37,17 +38,17 @@ function lineKind(t) {
   return /^\[.*\]$/.test(t.trim()) ? 'sec' : 'line';
 }
 
-async function addSong({ title, artist, url, lyrics, gid }) {
+async function addSong({ title, artist, url, lyrics, gid, sample }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
-  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
+  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
   state.current = id;
   save();
   $('#hits').innerHTML = ''; $('#q').value = ''; setStatus('');
   if (songsDlg.open) songsDlg.close();
   showTab('song');
   translateSong(); // en arrière-plan
-  loadMedia(state.songs[id]); // liens d'écoute connus de Genius : la chanson s'affiche tout de suite
+  if (!sample) loadMedia(state.songs[id]); // liens d'écoute connus de Genius : la chanson s'affiche tout de suite
 }
 
 let geminiOn = false;
@@ -216,6 +217,10 @@ function renderHome() {
   $('#stats').innerHTML = [[songs.length, songs.length === 1 ? t('stat.song') : t('stat.songs')], [state.library.length, t('stat.saved')], [learned, t('stat.learned')]]
     .map(([n, l]) => `<div class="stat"><b>${n}</b><span>${l}</span></div>`).join('');
   $('#homeResume').hidden = !song();
+  $('#stats').hidden = !songs.length;
+  $('#homeSongs').closest('.hblock').hidden = !songs.length;
+  $('#how').innerHTML = howHtml(t);
+  renderStart();
   $('#homeSongs').innerHTML = songs.map((x) => {
     const done = x.goal.words.filter((w) => w.done).length, tot = x.goal.words.length;
     return `<div class="card" data-id="${x.id}" role="button" tabindex="0">
@@ -235,6 +240,85 @@ $('#homeSongs').addEventListener('click', async (e) => {
 });
 $('#homeSongs').addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.card[data-id]')) { e.preventDefault(); e.target.click(); } });
 $('#homeAdd').onclick = () => songsDlg.showModal();
+
+// ---------- « Pour commencer » : 3 étapes qui se cochent toutes seules ----------
+let startHidden = false;
+try { startHidden = localStorage.getItem('ll_start_hide') === '1'; } catch {}
+function renderStart() {
+  const box = $('#start');
+  const songs = Object.values(state.songs);
+  const done = [songs.length > 0, state.library.length > 0, songs.some((x) => x.goal.words.some((w) => w.done))];
+  const n = done.filter(Boolean).length;
+  if (startHidden) { box.hidden = true; return; }
+  box.hidden = false;
+  const cur = done.findIndex((d) => !d);
+  const items = [1, 2, 3].map((k, i) => {
+    const cta = i !== cur ? '' : i === 0
+      ? `<div class="start-cta"><button class="btn solid" id="startAdd" type="button">${esc(t('home.add'))}</button><button class="link" id="startTry" type="button">${esc(t('start.example'))}</button></div>`
+      : `<div class="start-cta"><button class="btn solid" id="startOpen" type="button">${esc(t('start.open'))}</button></div>`;
+    return `<li class="${done[i] ? 'done' : i === cur ? 'cur' : ''}"><span class="sn">${done[i] ? '✓' : k}</span><div><h3>${esc(t(`start.s${k}.t`))}</h3><p>${esc(t(`start.s${k}.d`))}</p>${cta}</div></li>`;
+  }).join('');
+  box.innerHTML = `<div class="start-h"><div class="label">${esc(t('start.title'))}</div><span class="prog">${esc(t('start.progress', { done: n, total: 3 }))}</span><span class="pspace"></span><button class="link" id="startHide" type="button">${esc(t('start.hide'))}</button></div>
+    <div class="progress"><div style="width:${(n / 3) * 100}%"></div></div>`
+    + (n === 3 ? `<p class="start-done">${esc(t('start.alldone'))}</p>` : `<ol class="start-list">${items}</ol>`);
+}
+$('#start').addEventListener('click', (e) => {
+  const id = e.target.closest('button')?.id;
+  if (id === 'startAdd') songsDlg.showModal();
+  if (id === 'startTry') tryExample();
+  if (id === 'startOpen') { const s = song() || Object.values(state.songs).sort((x, y) => y.added - x.added)[0]; if (s) { state.current = s.id; save(); render(); showTab('song'); } }
+  if (id === 'startHide') { startHidden = true; try { localStorage.setItem('ll_start_hide', '1'); } catch {} renderStart(); }
+});
+
+// ---------- chanson d'exemple : essayer sans rien chercher ----------
+function tryExample() {
+  if (songsDlg.open) songsDlg.close();
+  const existing = Object.values(state.songs).find((x) => x.sample);
+  if (existing) { state.current = existing.id; save(); render(); showTab('song'); return; }
+  addSong({ title: SAMPLE_SONG.title, artist: SAMPLE_SONG.artist, url: '', lyrics: SAMPLE_SONG.lyrics, sample: true });
+}
+$('#homeTry').onclick = tryExample;
+$('#heroTry').onclick = tryExample;
+$('#dlgExample').onclick = tryExample;
+$('#heroAdd').onclick = () => songsDlg.showModal();
+
+// ---------- aide : schémas + bons réflexes ----------
+const helpDlg = $('#helpDlg');
+function buildHelp() {
+  $('#helpBody').innerHTML = `<h3 class="ht">${esc(t('home.how'))}</h3>${howHtml(t)}
+    <h3 class="ht">${esc(t('help.goal.t'))}</h3>${goalDiagramHtml(t)}
+    <h3 class="ht">${esc(t('help.tips.t'))}</h3><ul class="tips">${[1, 2, 3, 4, 5].map((k) => `<li>${esc(t(`help.tip${k}`))}</li>`).join('')}</ul>
+    <p id="helpNeed" class="status err" hidden>${esc(t('help.needSong'))}</p>`;
+}
+$('#helpBtn').onclick = () => { buildHelp(); helpDlg.showModal(); };
+$('#helpX').onclick = () => helpDlg.close();
+helpDlg.addEventListener('click', (e) => { if (e.target === helpDlg) helpDlg.close(); });
+$('#helpTour').onclick = () => {
+  if (!song()) { $('#helpNeed').hidden = false; return; }
+  helpDlg.close(); showTab('song'); setTimeout(() => runTour(), 500);
+};
+
+// ---------- visite guidée au premier passage dans une chanson ----------
+let tourSeen = false;
+try { tourSeen = localStorage.getItem('ll_tour') === '1'; } catch {}
+function runTour() {
+  const steps = [
+    { sel: '#lyrics .w', title: 'tour.1.t', desc: 'tour.1.d' },
+    { sel: '#wordPanel', title: 'tour.2.t', desc: 'tour.2.d', skipNarrow: true, before: () => { const w = document.querySelector('#lyrics .w'); if (w && !popCtx) openPop(w.textContent, Number(w.dataset.l)); } },
+    { sel: '#goalGrid', title: 'tour.3.t', desc: 'tour.3.d' },
+    { sel: '#ptabs', title: 'tour.4.t', desc: 'tour.4.d' },
+    { sel: '.lang', title: 'tour.5.t', desc: 'tour.5.d' }
+  ].filter((s) => document.querySelector(s.sel));
+  startTour({ t, steps, onClose: () => { tourSeen = true; try { localStorage.setItem('ll_tour', '1'); } catch {} closePop(); } });
+}
+function maybeTour() {
+  if (tourSeen || isTourOpen()) return;
+  setTimeout(() => {
+    if (tourSeen || isTourOpen() || currentTab !== 'song' || !song() || document.querySelector('dialog[open]')) return;
+    if (!document.querySelector('#lyrics .w')) return;
+    runTour();
+  }, 1400);
+}
 $('#homeResume').onclick = () => showTab('song');
 
 // ---------- lecteur : Spotify, Apple Music, Deezer, YouTube, SoundCloud ----------
@@ -541,7 +625,7 @@ function renderLibrary() {
   const q = norm($('#libSearch').value || '');
   const items = state.library.filter((e) => !q || norm(`${e.text} ${e.tr} ${e.title} ${e.artist} ${e.sentence}`).includes(q));
   $('#libEmpty').hidden = state.library.length > 0;
-  $('#libEmpty').textContent = t('lib.empty');
+  $('#libEmpty').innerHTML = libEmptyHtml(t);
   $('#libList').innerHTML = items.map((e) => `<li data-id="${e.id}">
     <span class="e"><bdi>${esc(e.text)}</bdi></span>
     <span class="m">${esc(e.tr)}<div class="s">${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
@@ -588,7 +672,7 @@ function showTab(name) {
   $('#homeTab').hidden = name !== 'home'; $('#songTab').hidden = name !== 'song'; $('#libraryTab').hidden = name !== 'library';
   closePop(); hideTip(); window.scrollTo(0, 0);
   if (name === 'home') renderHome();
-  if (name === 'song') ensureMedia(song());
+  if (name === 'song') { ensureMedia(song()); maybeTour(); } else endTour();
 }
 document.querySelectorAll('.nav button[data-tab]').forEach((b) => b.onclick = () => showTab(b.dataset.tab));
 $('#brand').onclick = (e) => { e.preventDefault(); showTab('home'); };
@@ -717,8 +801,9 @@ function openImport(h) {
         <div style="margin-top:8px"><button class="secondary" id="dPaste">${esc(t('imp.paste'))}</button></div></div></li>
     </ol>`;
   dlg.innerHTML = `<button class="x" id="dX" aria-label="${esc(t('common.close'))}">✕</button>
+    <div class="label">${esc(t('imp.step'))}</div>
     <h2 dir="auto">${esc(label)} <a class="gbadge" href="${esc(h.url)}" target="_blank" rel="noopener" title="${esc(t('imp.openOn'))}"><img src="genius-logo.svg" alt="Genius"></a></h2>
-    ${hasEmbed ? `<div class="muted small">${esc(t('imp.previewSub'))}</div>
+    ${hasEmbed ? `<p class="helper">${esc(t('imp.helper'))}</p>
       <div class="embedbox"><iframe id="embedFrame" title="${esc(t('imp.previewSub'))}" sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox" referrerpolicy="no-referrer"></iframe></div>
       <div id="embedState" class="small">${esc(t('imp.previewLoading'))}</div>
       <div class="acts"><button class="btn solid" id="dImport" type="button" disabled>${esc(t('imp.importThese'))}</button></div>` : `<div class="muted small">${esc(t('imp.sub'))}</div>`}
@@ -802,4 +887,5 @@ document.querySelectorAll('[data-lang]').forEach((b) => b.onclick = () => {
   setLang(b.dataset.lang);
   frameKey = ''; formKey = '';          // reconstruit le lecteur avec les nouveaux libellés
   render(); renderHome(); drawPanel();
+  if (helpDlg.open) buildHelp();
 });

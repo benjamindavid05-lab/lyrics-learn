@@ -43,9 +43,10 @@
       <button data-tab="library"><span data-i18n="nav.library">Library</span> <span id="libCount" class="count">0</span></button>
     </nav>
     <button id="openSongs" class="btn solid sm" type="button" data-i18n="nav.add">+ Song</button>
-    <label class="lang"><span data-i18n="lang.translateTo">Translate to</span>
+    <label class="lang" title="The language the lyrics are translated into." data-i18n-title="lang.tip"><span data-i18n="lang.translateTo">Translate into</span>
       <select id="target"></select>
     </label>
+    <button id="helpBtn" class="helpbtn" type="button" aria-label="Help" title="Help" data-i18n-aria="help.btn" data-i18n-title="help.btn">?</button>
     <div class="uilang" role="group" aria-label="Interface language">
       <button type="button" data-lang="en" class="active">EN</button><button type="button" data-lang="fr">FR</button>
     </div>
@@ -54,14 +55,37 @@
   <!-- HOME -->
   <main id="homeTab" class="home">
     <section class="hhero">
-      <div class="label" data-i18n="home.kicker">Learn through music</div>
-      <h1 class="display" data-i18n="home.title">Learn a language with your favorite songs.</h1>
-      <p class="lead" data-i18n="home.lead">Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.</p>
-      <div class="ctas">
-        <button id="homeAdd" class="btn solid" type="button" data-i18n="home.add">Add a song</button>
-        <button id="homeResume" class="btn" type="button" hidden data-i18n="home.resume">Resume reading</button>
+      <div class="hcopy">
+        <div class="label" data-i18n="home.kicker">Learn through music</div>
+        <h1 class="display" data-i18n="home.title">Learn a language with your favorite songs.</h1>
+        <p class="lead" data-i18n="home.lead">Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.</p>
+        <div class="ctas">
+          <button id="homeAdd" class="btn solid" type="button" data-i18n="home.add">Add a song</button>
+          <button id="homeTry" class="btn" type="button" data-i18n="home.try">Try an example song</button>
+          <button id="homeResume" class="btn" type="button" hidden data-i18n="home.resume">Resume reading</button>
+        </div>
+      </div>
+      <div class="demo2" aria-hidden="true">
+        <div class="d-win">
+          <div class="d-bar"><i></i><i></i><i></i></div>
+          <div class="d-lyrics">
+            <div class="d-l"><span dir="auto">אני</span> <span class="d-hit" dir="auto">אוהב</span> <span dir="auto">אותך</span></div>
+            <div class="d-t" data-i18n="demo.line">I love you every day</div>
+            <div class="d-l faint"><span dir="auto">כל</span> <span dir="auto">היום</span> <span dir="auto">שלי</span></div>
+          </div>
+          <div class="d-panel">
+            <div class="d-pl" data-i18n="panel.title">Translation</div>
+            <div class="d-pw" dir="auto">אוהב</div>
+            <div class="d-pd" data-i18n="demo.def">love</div>
+            <div class="d-btn"><span class="b1" data-i18n="panel.save">Save</span><span class="b2" data-i18n="panel.saved">Saved ✓</span></div>
+          </div>
+          <div class="d-chip" data-i18n="demo.chip">Added to your library</div>
+          <svg class="d-cursor" viewBox="0 0 20 26"><path d="M2 2l15 10-6.6 1.6L7 20.5z" fill="#0a0a0a" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="d-caps"><span class="c1" data-i18n="demo.cap1">Click a word</span><span class="c2" data-i18n="demo.cap2">See its meaning</span><span class="c3" data-i18n="demo.cap3">Save it to your library</span></div>
       </div>
     </section>
+    <section id="start" class="start" hidden></section>
     <section id="stats" class="stats" aria-label="Progress"></section>
     <section class="hblock">
       <div class="label" data-i18n="home.songs">My songs</div>
@@ -69,12 +93,7 @@
     </section>
     <section class="hblock">
       <div class="label" data-i18n="home.how">How it works</div>
-      <ol class="steps">
-        <li><span>01</span><p data-i18n="home.s1">Add a song: the lyrics are imported, then translated line by line.</p></li>
-        <li><span>02</span><p data-i18n="home.s2">Click a word, or select an expression, to translate and save it.</p></li>
-        <li><span>03</span><p data-i18n="home.s3">Set a word goal: those words are highlighted in the lyrics.</p></li>
-        <li><span>04</span><p data-i18n="home.s4">Find your words in the library, with the line of the song they come from.</p></li>
-      </ol>
+      <div id="how"></div>
     </section>
   </main>
 
@@ -84,8 +103,10 @@
       <div id="empty" class="hero">
         <div class="label" data-i18n="read.kicker">Reading</div>
         <h1 class="display" data-i18n="read.none">No song open.</h1>
+        <p class="lead" data-i18n="read.help">Add a song to start reading and translating.</p>
         <div class="ctas">
           <button id="heroAdd" class="btn solid" type="button" data-i18n="home.add">Add a song</button>
+          <button id="heroTry" class="btn" type="button" data-i18n="home.try">Try an example song</button>
         </div>
       </div>
 
@@ -117,6 +138,7 @@
             <select id="goalSize" data-i18n-aria="goal.count" aria-label="Number of words"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
           </div>
         </div>
+        <p class="goalhelp" data-i18n="goal.help">Words to learn from this song. Click a cell when you know the word.</p>
         <div class="progress"><div id="bar"></div></div>
         <div id="goalGrid" class="grid"></div>
         <label class="toggle quizrow"><input type="checkbox" id="quiz"> <span data-i18n="goal.quiz">Review mode: hide translations</span></label>
@@ -134,21 +156,23 @@
     </div>
     <p class="small hinttext" data-i18n="lib.hint">Hover a word to see the line of the song it comes from.</p>
     <ul id="libList" class="lib"></ul>
-    <p id="libEmpty" class="small" hidden></p>
+    <div id="libEmpty" hidden></div>
   </main>
 
   <footer class="foot"><a href="privacy.html" data-i18n="foot.priv">Privacy</a><span data-i18n="foot.text"> · Lyrics Learn is not affiliated with Genius. Lyrics belong to their authors and are shown for learning purposes. Genius is a trademark of Genius Media Group Inc.</span></footer>
 
   <dialog id="songsDlg" class="dlg">
     <button class="x" id="songsX" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
-    <div class="label" data-i18n="dlg.add">Add</div>
+    <div class="label" data-i18n="dlg.step1">Step 1 of 2 · Find your song</div>
     <h2 data-i18n="dlg.new">New song</h2>
+    <p class="helper" data-i18n="dlg.helper">Type a title or an artist, then pick the right result. You can also paste a Genius link.</p>
     <p class="src"><span data-i18n="dlg.via">Lyrics via</span> <a class="gbadge" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a></p>
     <form id="searchForm">
       <input id="q" type="search" placeholder="Title, artist, Genius link or embed code" data-i18n-ph="dlg.q" autocomplete="off" required>
       <button class="btn solid" data-i18n="dlg.search">Search</button>
     </form>
     <ul id="hits" class="hits"></ul>
+    <button id="dlgExample" class="link exlink" type="button" data-i18n="start.example">or try an example song</button>
     <details id="manual">
       <summary data-i18n="dlg.manual">Paste lyrics manually</summary>
       <input id="mTitle" placeholder="Title" data-i18n-ph="dlg.title">
@@ -159,6 +183,14 @@
     <p id="status" class="status" role="status"></p>
     <div class="label songs-label" data-i18n="dlg.mine">My songs</div>
     <ul id="songList" class="songs"></ul>
+  </dialog>
+
+  <dialog id="helpDlg" class="dlg help">
+    <button class="x" id="helpX" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
+    <div class="label" data-i18n="help.btn">Help</div>
+    <h2 data-i18n="help.title">How to use Lyrics Learn</h2>
+    <div id="helpBody"></div>
+    <div class="acts"><button id="helpTour" class="btn solid" type="button" data-i18n="help.replay">Replay the tour</button></div>
   </dialog>
 
   <dialog id="dlg" class="dlg"></dialog>
