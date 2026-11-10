@@ -69,6 +69,8 @@ async function translateSong() {
   const myTarget = state.target;
   s.lines.forEach((l) => { l.smart = false; });
   s.words = {}; s.wordsTarget = ''; s.engine = ''; s.warn = ''; s.translating = true;
+  // les mots de l'objectif déjà traduits dans une autre langue sont retraduits dans la langue choisie
+  s.goal.words.forEach((w) => { if (w.trLang !== myTarget) { w.tr = ''; w.note = ''; } });
   render();
   const engines = new Set();
   // fast = traduction instantanée ; sinon moteur contextuel, qui remplace la première
@@ -139,7 +141,7 @@ async function prefetchWords(s, target) {
   await Promise.all(Array.from({ length: Math.min(2, parts.length) }, worker));
   if (state.target !== target) return;
   s.words = words; s.wordsTarget = target;
-  for (const w of s.goal.words) { const x = words[norm(w.word)]; if (x?.text) { w.tr = x.text; w.note = x.note || w.note || ''; } }
+  for (const w of s.goal.words) { const x = words[norm(w.word)]; if (x?.text) { w.tr = x.text; w.trLang = s.wordsTarget || state.target; w.note = x.note || w.note || ''; } }
   save(); if (state.current === s.id) renderGoal();
 }
 
@@ -149,12 +151,22 @@ function ctxFor(word) {
   return l ? l.text : '';
 }
 
+// Mots de l'objectif traduits dans une autre langue que celle choisie (ancienne langue, ancienne version) : retraduits une fois
+function fixGoalLang(s) {
+  if (!s || s.translating || s.goalFix === state.target || !s.goal.words.some((w) => w.trLang !== state.target)) return;
+  s.goalFix = state.target;
+  s.goal.words.forEach((w) => { if (w.trLang !== state.target) { w.tr = ''; w.note = ''; } });
+  renderGoal();
+  translateGoal().then(save);
+}
 async function translateGoal() {
   const s = song(); if (!s || !s.goal.words.length) return;
+  const target = state.target;
   const items = s.goal.words.map((w) => ({ text: w.word, context: ctxFor(w.word) }));
   try {
-    const { results } = await api('/api/translate-words', { items, target: state.target, source: s.source, fast: true });
-    results.forEach((r, i) => { const w = s.goal.words[i]; if (w && w.word === items[i].text && !w.tr) { w.tr = r.text; w.note = r.note || w.note || ''; } });
+    const { results } = await api('/api/translate-words', { items, target, source: s.source, fast: true });
+    if (state.target !== target) return;
+    results.forEach((r, i) => { const w = s.goal.words[i]; if (w && w.word === items[i].text && r && r.text && (!w.tr || w.trLang !== target)) { w.tr = r.text; w.trLang = target; w.note = r.note || w.note || ''; } });
     if (state.current === s.id) renderGoal();
   } catch { /* les traductions contextuelles du préchargement prendront le relais */ }
 }
@@ -207,6 +219,7 @@ function render() {
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
   renderPlayer();
   renderGoal();
+  fixGoalLang(s);
   if (s.sync && s.sync.times && (syncPlaying || syncPos)) syncFrame();
 }
 
@@ -652,7 +665,7 @@ pop.addEventListener('click', (e) => {
   if (b.id === 'pGoal') {
     const i = s.goal.words.findIndex((g) => norm(g.word) === norm(popCtx.text));
     if (i >= 0) s.goal.words.splice(i, 1);
-    else s.goal.words.push({ word: popCtx.text, tr: popCtx.tr, note: popCtx.note, done: false });
+    else s.goal.words.push({ word: popCtx.text, tr: popCtx.tr, trLang: state.target, note: popCtx.note, done: false });
     save(); render(); drawPanel();
   }
 });
@@ -713,7 +726,7 @@ async function suggestGoal() {
           // tolère une forme sans préfixe collé (ex. hébreu : « בגדים » pour « הבגדים »)
           if (!forms.has(n)) n = [...forms.keys()].find((k) => k.endsWith(n) && k.length - n.length <= 2) || '';
           if (!n || seen.has(n)) continue;
-          seen.add(n); fresh.push({ word: forms.get(n), tr: w.tr, note: w.note, done: false });
+          seen.add(n); fresh.push({ word: forms.get(n), tr: w.tr, trLang: state.target, note: w.note, done: false });
         }
         if (fresh.length >= Math.min(2, size - keep.length)) { s.goal = { size, words: [...keep, ...fresh] }; return 'llm'; }
       }
