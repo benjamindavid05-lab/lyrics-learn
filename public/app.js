@@ -201,7 +201,7 @@ function render() {
     const tr = l.tr ? `<div class="tr" dir="${dir}">${esc(l.tr)}${l.rm ? ` <small>· ${esc(l.rm)}</small>` : ''}</div>` : '';
     return `<div class="ln${activeLine === i ? ' active' : ''}" data-i="${i}"><div class="orig" dir="auto">${wordsHtml(l.text, i)}</div>${tr}</div>`;
   }).join('');
-  syncEl = null; syncIdx = -1;
+  syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
   renderPlayer();
   renderGoal();
   if (s.sync && s.sync.times && (syncPlaying || syncPos)) syncFrame();
@@ -411,34 +411,55 @@ async function loadMedia(s) {
 }
 const ensureMedia = (s) => { if (s && !s.mediaLoaded && !s.finding) loadMedia(s); };
 
-// ---------- surlignage synchronisé avec la musique ----------
-let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null;
+// ---------- surlignage synchronisé avec la musique (mot à mot) ----------
+let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
 let follow = true; try { follow = localStorage.getItem('ll_follow') !== '0'; } catch {}
 function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; clearPlaying(); }
-function clearPlaying() { if (syncEl) { syncEl.classList.remove('playing'); syncEl.style.removeProperty('--p'); } syncEl = null; syncIdx = -1; }
-function onTick(pos, playing) { syncPos = pos; syncAt = performance.now(); syncPlaying = playing; if (playing && !syncRaf) syncRaf = requestAnimationFrame(syncFrame); }
+function clearPlaying() {
+  if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
+  syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
+}
+function onTick(pos, playing, dur) {
+  syncPos = pos; syncAt = performance.now(); syncPlaying = playing;
+  const s = song();
+  // la version du minutage doit avoir la même durée que le morceau joué : sinon on en cherche une autre
+  if (s && dur > 30 && s.sync && !s.sync.none && !s.sync.durChecked) {
+    s.sync.durChecked = true;
+    if (s.sync.dur && Math.abs(s.sync.dur - dur) > 2.5) { s.syncD = Math.round(dur); s.sync = undefined; ensureSync(s); }
+  }
+  if (playing && !syncRaf) syncRaf = requestAnimationFrame(syncFrame);
+  else if (!playing) syncFrame(); // pause ou déplacement du curseur : on met à jour une fois
+}
+const currentPos = () => syncPos + (syncPlaying ? (performance.now() - syncAt) / 1000 : 0);
 function syncFrame() {
   syncRaf = 0;
   const s = song(); if (!s || !s.sync || !s.sync.times) return;
-  const pos = syncPos + (syncPlaying ? (performance.now() - syncAt) / 1000 : 0) + (s.syncOff || 0);
-  const loc = locate(s.sync.times, pos);
+  const loc = locate(s.sync, currentPos() + (s.syncOff || 0));
   if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
     clearPlaying(); syncIdx = loc.i;
     syncEl = loc.i >= 0 ? document.querySelector(`#lyrics .ln[data-i="${loc.i}"]`) : null;
-    if (syncEl) { syncEl.classList.add('playing'); if (follow && syncPlaying) syncEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+    if (syncEl) { syncEl.classList.add('playing'); syncWords = syncEl.querySelectorAll('.w'); if (follow && syncPlaying) syncEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }
-  if (syncEl) syncEl.style.setProperty('--p', `${Math.round(loc.p * 100)}%`);
+  if (syncEl && syncWords) {
+    if (loc.k !== syncWord) {
+      syncWords.forEach((w, m) => { w.classList.toggle('sung', m < loc.k); w.classList.toggle('now', m === loc.k); if (m !== loc.k) w.style.removeProperty('--wp'); });
+      syncWord = loc.k;
+    }
+    if (loc.k >= 0 && syncWords[loc.k]) syncWords[loc.k].style.setProperty('--wp', `${Math.round(loc.p * 100)}%`);
+  }
   if (syncPlaying) syncRaf = requestAnimationFrame(syncFrame);
 }
 async function ensureSync(s) {
   if (!s || s.sync || s.syncing || !s.title) return;
   s.syncing = true;
   try {
-    const r = await api(`/api/synced?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}`);
+    const r = await api(`/api/synced?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}${s.syncD ? `&d=${s.syncD}` : ''}`);
     const texts = s.lines.map((l) => (lineKind(l.text) === 'line' ? l.text : null));
     const n = texts.filter((x) => x != null).length;
     const al = r.lines && r.lines.length ? alignLines(texts, r.lines) : null;
-    s.sync = al && al.matched >= Math.max(3, n * 0.3) ? { times: al.times } : { none: true };
+    s.sync = al && al.matched >= Math.max(3, n * 0.3)
+      ? { times: al.times, ends: al.ends, words: al.words, exact: al.exact, exactLines: al.exactLines, total: al.matched, dur: r.duration || 0, wordSync: !!r.wordSync, durChecked: !!s.syncD }
+      : { none: true };
   } catch { s.sync = { none: true }; }
   finally { s.syncing = false; save(); if (state.current === s.id) renderSyncBar(s); }
 }
@@ -450,16 +471,30 @@ function renderSyncBar(s, p) {
   if (!canSync(p.provider)) html = `<span>${esc(t('sync.unsupported'))}</span>`;
   else if (!s.sync) html = `<span>${esc(t('sync.loading'))}</span>`;
   else if (s.sync.none) html = `<span>${esc(t('sync.none'))}</span>`;
-  else html = `<span class="syncon"><b>♪</b> ${esc(t('sync.ready'))}</span>
-    <span class="syncoff"><button type="button" class="link" data-off="-0.5" aria-label="${esc(t('sync.earlier'))}">−0.5 s</button><em>${(s.syncOff || 0) > 0 ? '+' : ''}${(s.syncOff || 0).toFixed(1)} s</em><button type="button" class="link" data-off="0.5" aria-label="${esc(t('sync.later'))}">+0.5 s</button></span>`;
+  else {
+    const exactShare = s.sync.exactLines / Math.max(1, s.sync.total);
+    const mode = exactShare >= 0.6 ? t('sync.exact') : t('sync.approx');
+    html = `<span class="syncon"><b>♪</b> ${esc(mode)}</span>
+    <span class="syncoff"><button type="button" class="link" data-align="1" title="${esc(t('sync.alignTip'))}">${esc(t('sync.align'))}</button>
+      <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${(s.syncOff || 0) > 0 ? '+' : ''}${(s.syncOff || 0).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
+  }
   bar.innerHTML = html; bar.hidden = false;
   $('#followWrap').hidden = !(s.sync && s.sync.times);
   $('#follow').checked = follow;
 }
 $('#syncBar').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-off]'); const s = song(); if (!b || !s) return;
+  const s = song(); if (!s || !s.sync || !s.sync.times) return;
+  const a = e.target.closest('[data-align]');
+  if (a) {
+    // « Cette ligne est chantée maintenant » : on aligne le minutage sur la ligne sélectionnée (clic sur un mot de cette ligne)
+    const i = activeLine != null && s.sync.times[activeLine] != null ? activeLine : (syncIdx >= 0 ? syncIdx : -1);
+    if (i < 0) return setStatus(t('sync.alignNone'), true);
+    s.syncOff = Math.round((s.sync.times[i] - currentPos()) * 10) / 10;
+    save(); renderSyncBar(s); if (!syncPlaying) syncFrame(); return;
+  }
+  const b = e.target.closest('[data-off]'); if (!b) return;
   s.syncOff = Math.round(((s.syncOff || 0) + Number(b.dataset.off)) * 10) / 10; save(); renderSyncBar(s);
-  if (syncPlaying) return; syncFrame();
+  if (!syncPlaying) syncFrame();
 });
 $('#follow').onchange = () => { follow = $('#follow').checked; try { localStorage.setItem('ll_follow', follow ? '1' : '0'); } catch {} };
 

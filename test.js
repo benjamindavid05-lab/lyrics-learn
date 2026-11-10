@@ -83,7 +83,16 @@ const g = ['[Strophe 1]', "In diesem Haus, wo ich wohn'", 'Hier ist alles so gew
 const al = alignLines(g.map((x, i) => (i === 0 ? null : x)), lrc);
 assert.equal(al.times[0], null); assert.equal(al.times[1], 8.5); assert.equal(al.times[2], 11.22); assert.equal(al.times[3], 14.49); assert.equal(al.times[5], 20.39);
 assert.ok(al.times[4] > 14.49 && al.times[4] < 20.39, 'vers non reconnu : placé entre ses voisins');
-assert.equal(locate(al.times, 5).i, -1); assert.equal(locate(al.times, 12).i, 2);
-const loc = locate(al.times, 12.86); assert.ok(loc.p > 0.4 && loc.p < 0.6);
+assert.equal(locate(al, 5).i, -1); assert.equal(locate(al, 12).i, 2);
+assert.equal(locate(al, 12).k >= 0, true);
 assert.equal(alignLines(['totally different words here'], lrc).matched, 0);
+// minutage mot à mot exact
+import { parseLyricsFile } from './synced.js';
+const yaml = `lines:\n- text: Ich will nur hier raus\n  start_ms: 23200\n  end_ms: 24860\n  words:\n  - text: 'Ich '\n    start_ms: 23200\n  - text: 'will '\n    start_ms: 23380\n  - text: 'nur '\n    start_ms: 23600\n  - text: 'hier '\n    start_ms: 24160\n  - text: raus\n    start_ms: 24420\n- text: 'Ça va '\n  start_ms: 25000\n`;
+const pf = parseLyricsFile(yaml);
+assert.equal(pf.length, 2); assert.equal(pf[0].words.length, 5); assert.equal(pf[0].words[4].t, 24.42); assert.equal(pf[0].end, 24.86); assert.equal(pf[1].text, 'Ça va');
+const ex = alignLines(['Ich will nur hier raus!'], pf);
+assert.equal(ex.exact[0], true); assert.deepEqual(ex.words[0], [23.2, 23.38, 23.6, 24.16, 24.42]);
+assert.equal(locate(ex, 23.7).k, 2); assert.equal(locate(ex, 24.5).k, 4); assert.equal(locate(ex, 30).i, -1);
+const lp = locate(ex, 23.49); assert.equal(lp.k, 1); assert.ok(lp.p > 0.4 && lp.p < 0.7);
 console.log('ok');
