@@ -629,7 +629,7 @@ async function ensureSync(s) {
     const al = r.lines && r.lines.length ? alignLines(texts, r.lines) : null;
     s.sync = al && al.matched >= Math.max(3, n * 0.3)
       ? { v: 2, versions: r.versions || [], times: al.times, ends: al.ends, words: al.words, exact: al.exact, exactLines: al.exactLines, total: al.matched, dur: r.duration || 0, wordSync: !!r.wordSync, durChecked: !!s.syncD }
-      : { none: true, at: Date.now() };
+      : { none: true, at: Date.now(), found: (r.lines || []).length, matched: al ? al.matched : 0, n };
   } catch { s.sync = { none: true, at: Date.now() }; }
   finally { s.syncing = false; save(); chooseVideo(s); if (state.current === s.id) renderSyncBar(s); }
 }
@@ -647,6 +647,8 @@ function renderSyncBar(s, p) {
   } else if (ready) {
     html = `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.press'))}</span>`;
   }
+  else if (s.sync && s.sync.none && s.sync.found) html = `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.nomatch', { m: s.sync.matched, n: s.sync.n }))}</span>`;
+  else if (s.sync && s.sync.none) html = `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.nofound'))}</span>`;
   bar.innerHTML = html; bar.hidden = !html;
   $('#followWrap').hidden = !(ready && playerSeen);
   $('#follow').checked = follow;
