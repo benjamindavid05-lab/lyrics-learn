@@ -82,7 +82,7 @@ const EN = {
   'goal.help': 'Words to learn from this song. Click a cell when you know the word.',
   'libempty.t': 'Your library is empty', 'libempty.1': 'Click a word in a song', 'libempty.2': 'Press Save', 'libempty.3': 'It appears here',
   'read.help': 'Add a song to start reading and translating.',
-  'dlg.step1': 'Step 1 of 2 · Find your song', 'dlg.helper': 'Type a title or an artist, or paste a link from your music player (Spotify, YouTube, Apple Music, Deezer, SoundCloud). Then pick the right result.', 'link.finding': 'Reading the music link…', 'link.found': 'Found: {name}. Pick the right result.', 'link.fail': 'Could not read this link. Type the title and artist instead.',
+  'dlg.step1': 'Step 1 of 2 · Find your song', 'dlg.helper': 'Type a title or an artist, or paste a link from your music player (Spotify, YouTube, Apple Music, Deezer, SoundCloud). Then pick the right result.', 'link.finding': 'Reading the music link…', 'link.found': 'Found: {name}. Pick the right result.', 'link.notrack': 'This link is not a single track (album, playlist or artist). Open the song and copy its link.', 'link.fail': 'Could not read this link. Type the title and artist instead.',
   'imp.step': 'Step 2 of 2 · Check the lyrics', 'imp.helper': 'These are the lyrics Genius shows. If they look right, import them.',
   'sample.title': 'Example song', 'sample.note': 'Written for Lyrio so you can try everything right away.'
 };
@@ -170,7 +170,7 @@ const FR = {
   'goal.help': 'Mots à apprendre dans cette chanson. Cliquez une case quand vous connaissez le mot.',
   'libempty.t': 'Votre bibliothèque est vide', 'libempty.1': 'Cliquez un mot dans une chanson', 'libempty.2': 'Appuyez sur Enregistrer', 'libempty.3': 'Il apparaît ici',
   'read.help': 'Ajoutez une chanson pour commencer à lire et traduire.',
-  'dlg.step1': 'Étape 1 sur 2 · Trouvez votre chanson', 'dlg.helper': 'Tapez un titre ou un artiste, ou collez un lien de votre lecteur de musique (Spotify, YouTube, Apple Music, Deezer, SoundCloud). Puis choisissez le bon résultat.', 'link.finding': 'Lecture du lien musical…', 'link.found': 'Trouvé : {name}. Choisissez le bon résultat.', 'link.fail': 'Lien illisible. Tapez plutôt le titre et l’artiste.',
+  'dlg.step1': 'Étape 1 sur 2 · Trouvez votre chanson', 'dlg.helper': 'Tapez un titre ou un artiste, ou collez un lien de votre lecteur de musique (Spotify, YouTube, Apple Music, Deezer, SoundCloud). Puis choisissez le bon résultat.', 'link.finding': 'Lecture du lien musical…', 'link.found': 'Trouvé : {name}. Choisissez le bon résultat.', 'link.notrack': 'Ce lien n’est pas celui d’un morceau (album, playlist ou artiste). Ouvrez la chanson et copiez son lien.', 'link.fail': 'Lien illisible. Tapez plutôt le titre et l’artiste.',
   'imp.step': 'Étape 2 sur 2 · Vérifiez les paroles', 'imp.helper': 'Voici les paroles affichées par Genius. Si elles vous semblent bonnes, importez-les.',
   'sample.title': 'Chanson d’exemple', 'sample.note': 'Écrite pour Lyrio afin que vous puissiez tout essayer tout de suite.'
 };

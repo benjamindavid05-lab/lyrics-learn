@@ -1580,7 +1580,7 @@ async function resolveLink(q) {
     if (found.needsToken) return setStatus(t('search.notConfigured'), true);
     renderHits(found.hits);
     setStatus(found.hits.length ? t('link.found', { name }) : t('search.none'), !found.hits.length);
-  } catch (err) { if (seq === searchSeq) setStatus(t('link.fail'), true); }
+  } catch (err) { if (seq === searchSeq) setStatus(/open\.spotify\.com\/(intl-\w+\/)?(album|playlist|artist|show|episode)\//i.test(q) || /music\.apple\.com\/\w+\/(playlist|artist)\//i.test(q) ? t('link.notrack') : t('link.fail'), true); }
 }
 
 function openFromEmbedCode(q) {
