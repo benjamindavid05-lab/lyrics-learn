@@ -7,10 +7,13 @@
   <meta name="description" content="Import song lyrics, read them with their translation, save the words you want to learn.">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500;1,9..144,700&family=Caveat:wght@500;700&family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs>
+    <filter id="rough" x="-5%" y="-10%" width="110%" height="120%"><feTurbulence type="fractalNoise" baseFrequency=".04" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.6"/></filter>
+  </defs></svg>
 
   <header class="top">
     <a class="brand" href="#" id="brand" aria-label="Lyrio"><span class="mark" aria-hidden="true"><svg class="bird bird-parrot bobbing" width="44" height="44" viewBox="0 0 100 100" role="img" aria-hidden="true">
@@ -44,11 +47,18 @@
     <section class="hhero">
       <div class="floaties" aria-hidden="true"><span>♪</span><span>♫</span><span>✦</span><span>♬</span><span>♪</span><span>✦</span><span>♫</span></div>
       <div class="hcopy">
-        <div class="label kick"><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span data-i18n="home.kicker">Learn through music</span></div>
-        <h1 class="display" data-i18n="home.title">Learn a language with your favorite songs.</h1>
+        <p class="hand-kick"><span class="hk-note" aria-hidden="true">♪</span> <span data-i18n="home.kicker">Learn through music</span><svg class="hk-line" viewBox="0 0 120 10" aria-hidden="true"><path d="M2 6C20 1 36 9 58 4S96 8 118 3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></p>
+        <svg class="staff" viewBox="0 0 560 70" aria-hidden="true" focusable="false"><g filter="url(#rough)">
+          <g stroke="currentColor" stroke-width="1.4" opacity=".5" fill="none" stroke-linecap="round"><path d="M4 12h552M4 24h552M4 36h552M4 48h552M4 60h552"/></g>
+          <path d="M26 66c-9-10-14-26-4-40 8-12 18-8 16 4-2 10-14 12-16 24 0 10 10 10 14 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          <ellipse cx="300" cy="30" rx="15" ry="11" fill="#ffe36b" opacity=".85" transform="rotate(-8 300 30)"/>
+          <g fill="currentColor"><ellipse cx="90" cy="48" rx="6.5" ry="4.6" transform="rotate(-22 90 48)"/><ellipse cx="150" cy="36" rx="6.5" ry="4.6" transform="rotate(-22 150 36)"/><ellipse cx="210" cy="24" rx="6.5" ry="4.6" transform="rotate(-22 210 24)"/><ellipse cx="300" cy="36" rx="6.5" ry="4.6" transform="rotate(-22 300 36)"/><ellipse cx="365" cy="18" rx="6.5" ry="4.6" transform="rotate(-22 365 18)"/><ellipse cx="430" cy="30" rx="6.5" ry="4.6" transform="rotate(-22 430 30)"/><ellipse cx="500" cy="42" rx="6.5" ry="4.6" transform="rotate(-22 500 42)"/></g>
+          <g stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"><path d="M96 46V16M156 34V4M216 22V-6M306 34V4M371 16V-14M436 28V-2M506 40V10"/><path d="M216 -6c8 2 12 6 10 14M156 4c8 2 12 6 10 14M506 10c8 2 12 6 10 14"/><path d="M371 -14L436 -2" stroke-width="4"/></g>
+        </g></svg>
+        <h1 class="display" data-i18n-html="home.title">Learn a language with your <em>favorite songs</em>.</h1>
         <p class="lead" data-i18n="home.lead">Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.</p>
         <div class="ctas">
-          <button id="homeAdd" class="btn solid pulse" type="button" data-i18n="home.cta">Find a song and start learning</button>
+          <button id="homeAdd" class="btn solid ticket" type="button" data-i18n="home.cta">Find a song and start learning</button>
           <span class="cta-hint" aria-hidden="true"><svg viewBox="0 0 70 40"><path d="M66 30C44 38 16 30 13 9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><path d="M5 17l8-10 8 9" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg><b data-i18n="home.hint">Start here!</b></span>
           <button id="homeResume" class="btn" type="button" hidden data-i18n="home.resume">Resume reading</button>
         </div>
