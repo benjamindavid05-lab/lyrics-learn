@@ -1395,7 +1395,7 @@ function renderLibrary() {
   const row = (e) => `<li data-id="${e.id}">
     <span class="e"><bdi>${esc(e.text)}</bdi></span>
     <span class="m">${e.tr ? esc(e.tr) : '<span class="muted">…</span>'}<div class="s">${e.lang ? `${flagOf(e.lang)} ${esc(langName(e.lang, ui()))} · ` : ''}${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
-    <span class="mst" title="${esc(t('play.mastery'))}" aria-hidden="true">${'●'.repeat(Math.min(4, e.box || 0))}${'○'.repeat(4 - Math.min(4, e.box || 0))}</span><button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`;
+    <span class="mst" tabindex="0" role="note" data-tip="${esc(t('mst.' + Math.min(4, e.box || 0)) + '\n' + t('mst.rule'))}" aria-label="${esc(t('mst.' + Math.min(4, e.box || 0)))}">${'●'.repeat(Math.min(4, e.box || 0))}${'○'.repeat(4 - Math.min(4, e.box || 0))}</span><button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`;
   $('#libEmpty').hidden = state.library.length > 0;
   $('#libEmpty').innerHTML = libEmptyHtml(t);
   // « Toutes » : regroupé par langue, avec le drapeau en en-tête ; sinon la langue choisie seulement

@@ -1282,3 +1282,15 @@ body{padding-bottom:0}
 .hero-bird{left:8px}
 
 .ka-off{align-items:center}.ka-off b{font:800 14px var(--sans);min-width:56px;text-align:center;color:#ffe36b}
+
+/* infobulle des niveaux de mémorisation */
+.mst{position:relative;cursor:help;outline:none}
+.mst::after{content:attr(data-tip);position:absolute;right:-6px;bottom:calc(100% + 10px);width:max-content;max-width:min(260px,70vw);padding:9px 12px;background:#1d1a14;color:#fff7e6;border-radius:10px;font:600 12.5px/1.4 Nunito,system-ui,sans-serif;letter-spacing:0;white-space:pre-line;text-align:left;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;transform:translateY(4px);pointer-events:none;transition:opacity .15s,transform .15s;z-index:30}
+.mst:hover::after,.mst:focus::after{opacity:1;transform:none}
+
+/* infobulle vitesse du mode étude */
+.st-speed{overflow:visible;position:relative}
+.st-speed button{position:relative}
+.st-speed button:first-child{border-radius:99px 0 0 99px}.st-speed button:last-child{border-radius:0 99px 99px 0}
+.st-speed button::after{content:attr(data-tip);position:absolute;left:50%;bottom:calc(100% + 12px);transform:translate(-50%,4px);width:max-content;max-width:min(240px,64vw);padding:9px 12px;background:#1d1a14;color:#fff7e6;border-radius:10px;font:600 12.5px/1.4 Nunito,system-ui,sans-serif;text-align:left;box-shadow:0 6px 18px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:opacity .15s,transform .15s;z-index:40}
+.st-speed button:hover::after,.st-speed button:focus-visible::after{opacity:1;transform:translate(-50%,0)}
