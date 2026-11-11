@@ -639,8 +639,7 @@ function renderSyncBar(s, p) {
   if (ready && playerSeen && playerPreview) {
     html = `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.preview2'))}${s.players.youtube && s.playerPref !== 'youtube' ? ` <button type="button" class="btn sm solid" data-switch="youtube">${esc(t('sync.toYoutube'))}</button>` : ''}</span>`;
   } else if (ready && playerSeen) {
-    html = `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.following'))}</span> <button type="button" class="link" data-fix="1">${esc(t('sync.outOf'))}</button>`
-      + (fixOpen ? ` <span class="syncoff"><button type="button" class="link" data-off="-0.3">◀ ${esc(t('sync.earlier'))}</button><em>${getOff(s) > 0 ? '+' : ''}${getOff(s).toFixed(1)} s</em><button type="button" class="link" data-off="0.3">${esc(t('sync.later'))} ▶</button><button type="button" class="link" data-off="0">${esc(t('sync.reset'))}</button></span>` : '');
+    html = `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.following'))}</span>`;
   } else if (ready) {
     html = `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.press'))}</span>`;
   }
@@ -1060,11 +1059,12 @@ function renderPlayer() {
   migratePlayers(s);
   const sel = s.playerPref && s.players[s.playerPref] ? s.playerPref : '';
   // onglets : peuvent être redessinés à tout moment sans toucher au lecteur
-  $('#ptabs').innerHTML = `<span class="label">${esc(t('player.listenLabel'))}</span>`
-    + (visibleServices(s).length > 1 ? SERVICES.filter(([k]) => visibleServices(s).includes(k)).map(([k, name]) => `<button type="button" class="ptab${sel === k ? ' on' : ''}" data-svc="${k}">${esc(name)}</button>`).join('') : '')
-    + (s.finding ? `<span class="small pfind">${esc(t('player.finding'))}</span>` : '')
-    + `<span class="pspace"></span><button class="link" type="button" data-p="change">${esc(t('player.link'))}</button>`
-    + (sel ? `<button class="link" type="button" data-p="remove">${esc(t('player.remove'))}</button>` : '');
+  const vis = visibleServices(s), names = Object.fromEntries(SERVICES);
+  $('#ptabs').innerHTML = `<details class="pmore"><summary>${esc(sel ? names[sel] : t('player.listenLabel'))}${s.finding ? ' …' : ''} <span aria-hidden="true">▾</span></summary><div class="pmore-in">`
+    + (vis.length > 1 ? vis.map((k) => `<button type="button" class="ptab${sel === k ? ' on' : ''}" data-svc="${k}">${esc(names[k])}</button>`).join('') : '')
+    + `<button class="link" type="button" data-p="change">${esc(t('player.link'))}</button>`
+    + (sel ? `<button class="link" type="button" data-p="remove">${esc(t('player.remove'))}</button>` : '')
+    + `</div></details>`;
   // lecteur : recréé seulement si le morceau change, pour ne pas couper la musique
   const p = sel && s.players[sel];
   const fk = `${s.id}|${p ? p.src : ''}${p ? '' : '|' + !!s.finding}|${getLang()}|${spot.isConnected() ? 1 : 0}${spBad ? 1 : 0}`;

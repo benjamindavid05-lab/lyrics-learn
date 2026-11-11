@@ -32,10 +32,6 @@
       <button data-tab="library"><span data-i18n="nav.library">Library</span> <span id="libCount" class="count">0</span></button>
     </nav>
     <button id="openSongs" class="btn solid sm" type="button" data-i18n="nav.add">+ Song</button>
-    <label class="lang" title="The language the lyrics are translated into." data-i18n-title="lang.tip"><span data-i18n="lang.translateTo">Translate into</span>
-      <select id="target"></select>
-    </label>
-    <button id="targetGo" class="btn solid sm tgo" type="button" hidden><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="targetGoT"></span></button>
     <button id="helpBtn" class="helpbtn" type="button" aria-label="Help" title="Help" data-i18n-aria="help.btn" data-i18n-title="help.btn">?</button>
     <div class="uilang" role="group" aria-label="Interface language">
       <button type="button" data-lang="en" class="active">EN</button><button type="button" data-lang="fr">FR</button>
@@ -129,15 +125,20 @@
       </div>
 
       <article id="songView" hidden>
-        <div class="kickerrow">
-          <div id="sArtist" class="label"></div>
-          <label class="toggle"><input type="checkbox" id="showTr" checked> <span data-i18n="toggle.tr">Translation</span></label>
-          <button id="karaBtn" class="btn sm karabtn" type="button"><span aria-hidden="true">🎤</span> <span data-i18n="kara.btn">Karaoke mode</span></button>
-          <button id="studyBtn" class="btn solid sm studybtn" type="button"><span aria-hidden="true">🎯</span> <span data-i18n="study.btn">Study line by line</span></button>
-          <label class="toggle" id="followWrap" hidden><input type="checkbox" id="follow" checked> <span data-i18n="follow.t">Follow the music</span></label>
-        </div>
+        <div class="kickerrow"><div id="sArtist" class="label"></div></div>
         <h1 id="sTitle" class="display"></h1>
         <div class="metarow"><div id="sSrc" class="src"></div><div id="sEngine" class="small"></div></div>
+        <div class="readbar">
+          <label class="lang" title="The language the lyrics are translated into." data-i18n-title="lang.tip"><span data-i18n="lang.translateTo">Translate into</span>
+                <select id="target"></select>
+              </label>
+          <button id="targetGo" class="btn solid sm tgo" type="button" hidden><span class="eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span><span id="targetGoT"></span></button>
+          <label class="toggle"><input type="checkbox" id="showTr" checked> <span data-i18n="toggle.tr">Translation</span></label>
+          <label class="toggle" id="followWrap" hidden><input type="checkbox" id="follow" checked> <span data-i18n="follow.t">Follow the music</span></label>
+          <span class="rb-space"></span>
+          <button id="karaBtn" class="btn sm" type="button"><span aria-hidden="true">🎤</span> <span data-i18n="kara.btn">Karaoke mode</span></button>
+          <button id="studyBtn" class="btn solid sm" type="button"><span aria-hidden="true">🎯</span> <span data-i18n="study.btn">Study line by line</span></button>
+        </div>
         <div id="trLoad" class="trload" role="status" aria-live="polite" hidden><span class="eq big" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span><span id="trLoadT"></span><span class="nts" aria-hidden="true"><b>♪</b><b>♫</b><b>♪</b></span></div>
         <div id="player" class="player">
           <div id="ptabs" class="ptabs"></div>

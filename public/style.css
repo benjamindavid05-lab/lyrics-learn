@@ -1199,3 +1199,36 @@ body{padding-bottom:0}
 #kaTime{font:800 14px var(--sans);opacity:.8}
 .ka-off{margin-left:auto;display:flex;gap:14px}.ka-off .link{color:#fff7da;opacity:.8}
 @media(prefers-reduced-motion:reduce){.kara[open],.ka-word{animation:none!important}.ka-lines{scroll-behavior:auto}}
+
+/* =====================================================================
+   REFOCUS : un parcours simple — chercher, lire, garder, jouer
+   ===================================================================== */
+/* ce qui n'est plus affiché par défaut (conservé en code, masqué) */
+#start,#stats,.goalbox,#followWrap,.syncoff,.nav-ink+.x{display:none!important}
+.rail{display:block}
+/* barre de lecture : langue + traduction à gauche, deux grands boutons à droite */
+.kickerrow{padding-right:0}
+.readbar{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;margin:6px 0 16px;padding:10px 14px;border:2px dashed rgba(30,27,22,.35);border-radius:14px}
+.rb-space{flex:1}
+.readbar .lang{display:inline-flex;align-items:center;gap:8px;font:800 12px var(--sans);letter-spacing:.06em}
+.readbar .lang select{min-width:130px}
+.readbar .toggle{font:700 14px var(--sans)}
+.readbar .btn.sm{padding:11px 16px}
+/* lecteur : un seul, les autres dans un petit menu */
+.pmore{margin:0 0 8px}
+.pmore summary{display:inline-flex;align-items:center;gap:6px;cursor:pointer;font:800 12px var(--sans);letter-spacing:.1em;text-transform:uppercase;color:var(--dim);list-style:none}
+.pmore summary::-webkit-details-marker{display:none}
+.pmore[open] summary{color:var(--ink)}
+.pmore-in{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0 4px;padding:10px 12px;border:1.5px solid rgba(30,27,22,.3);border-radius:12px;background:var(--card)}
+.ptabs .label{display:none}
+.syncbar{margin-top:6px}
+/* accueil : chemin court — présentation, 4 étapes, mon oiseau, mes chansons */
+.birdcard{margin-top:34px}
+#pGoal{display:none!important}
+.readbar{border:0;padding:0;margin:2px 0 14px}
+.readbar .lang span{display:none}
+.readbar .lang::before{content:"🌍";font-size:20px}
+.readbar .lang select{min-width:120px;font-size:15px}
+.readbar .toggle{margin-left:2px}
+@media(max-width:640px){.readbar .btn.sm{flex:1}.rb-space{display:none}}
+.bc-how,.card .mini,.card .minibar{display:none!important}
