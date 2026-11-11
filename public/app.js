@@ -568,6 +568,7 @@ const getOff = (s) => { const o = (s.syncOffs || {})[offKey(s)]; return o != nul
 const setOff = (s, v) => { s.syncOffs = s.syncOffs || {}; s.syncOffs[offKey(s)] = Math.round(v * 10) / 10; };
 let syncCorr = 0, syncCorrAt = 0;
 function feed(pos, playing, dur) {
+  if (kara.open) setTimeout(() => karaCtl(playing), 0);
   if (playing && wordPaused && Date.now() - wordPausedAt > 1500) { wordPaused = false; clearPicked(); if (popCtx) drawPanel(); }
   setTimeout(nowRender, 0);
   if (study.open) {
@@ -593,6 +594,7 @@ function syncFrame() {
   syncRaf = 0;
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
   let loc; try { loc = locate(s.sync, currentPos() + getOff(s)); } catch { return; }
+  if (kara.open) karaUpdate(s, loc);
   if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
     clearPlaying(); syncIdx = loc.i;
     if (study.open && study.follow && loc.i >= 0) studyGoLine(loc.i);
@@ -977,6 +979,79 @@ document.addEventListener('click', async (e) => {
     spot.disconnect(); spBad = ''; stopSync(); renderPlayer();
   }
 });
+
+// ---------- mode karaoké : texte géant qui suit la musique, comme sur Spotify ----------
+const kara = { open: false, idx: -2, els: new Map(), words: null, word: -2 };
+function karaOpen() {
+  const s = song(); if (!s) return;
+  const hasSync = !!(s.sync && s.sync.v === 2 && s.sync.times);
+  kara.open = true; kara.idx = -2; kara.els = new Map(); kara.words = null; kara.word = -2;
+  $('#kaTitle').textContent = s.title; $('#kaArtist').textContent = s.artist || '';
+  $('#kaNo').hidden = hasSync; $('#kaNo').textContent = t('kara.nosync');
+  const trOn = $('#kaTr').checked;
+  $('#kaLines').className = 'ka-lines' + (trOn ? '' : ' no-tr');
+  $('#kaLines').innerHTML = s.lines.map((l, i) => {
+    if (lineKind(l.text) !== 'line') return '';
+    let out = '', last = 0;
+    for (const m of l.text.matchAll(WORD_RE)) { out += esc(l.text.slice(last, m.index)) + `<span class="kw" data-n="${esc(norm(m[0]))}" data-l="${i}">${esc(m[0])}</span>`; last = m.index + m[0].length; }
+    out += esc(l.text.slice(last));
+    return `<div class="kl" data-i="${i}"><div class="ko" dir="auto">${out}</div>${l.tr ? `<div class="kt" dir="auto">${esc(l.tr)}</div>` : ''}</div>`;
+  }).join('');
+  $('#kaLines').querySelectorAll('.kl').forEach((e) => kara.els.set(Number(e.dataset.i), e));
+  $('#kaWord').hidden = true;
+  $('#karaDlg').showModal(); karaCtl();
+  if (hasSync) syncFrame();
+}
+function karaUpdate(s, loc) {
+  if (loc.i !== kara.idx) {
+    kara.idx = loc.i; kara.word = -2;
+    kara.els.forEach((el, i) => { el.classList.toggle('past', loc.i >= 0 && i < loc.i); el.classList.toggle('active', i === loc.i); if (i !== loc.i) { el.classList.remove('approx'); el.querySelectorAll('.kw.sung,.kw.now').forEach((w) => w.classList.remove('sung', 'now')); } });
+    const el = kara.els.get(loc.i); kara.words = el ? el.querySelectorAll('.kw') : null;
+    if (el && !kara.pinned) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  const el = kara.els.get(loc.i); if (!el) return;
+  const exact = s.sync.exact && s.sync.exact[loc.i];
+  el.classList.toggle('approx', !exact); if (!exact) el.style.setProperty('--lp', `${Math.round(loc.line * 100)}%`);
+  if (exact && kara.words && loc.k !== kara.word) { kara.words.forEach((w, m) => { w.classList.toggle('sung', m < loc.k); w.classList.toggle('now', m === loc.k); }); kara.word = loc.k; }
+}
+function karaCtl(playing) {
+  const btn = $('#kaPlay'); if (!btn) return;
+  const pl = playing != null ? playing : syncPlaying;
+  btn.textContent = pl ? '⏸' : '▶'; btn.disabled = !playerCtl;
+  const d = syncKnownDur; $('#kaTime').textContent = d ? `${fmtTime(currentPos())} / ${fmtTime(d)}` : fmtTime(currentPos());
+}
+async function karaWord(span) {
+  const s = song(); if (!s) return;
+  const text = span.textContent, i = Number(span.dataset.l);
+  pauseForWord(); kara.pinned = true;
+  const bar = $('#kaWord'); bar.hidden = false; bar.innerHTML = `<b dir="auto">${esc(text)}</b> <span>…</span>`;
+  const key = `${state.target}|${text}|${i}`;
+  let r = wordCache.get(key) || (s.wordsTarget === state.target && s.words && s.words[norm(text)]);
+  if (!r) { try { r = await api('/api/translate', { text, target: state.target, source: s.source, context: s.lines[i].text }); wordCache.set(key, r); } catch { r = { text: t('panel.busy'), translit: '' }; } }
+  if (r.text && r.text !== t('panel.busy')) countLookup(s, text);
+  const saved = state.library.some((e) => norm(e.text) === norm(text));
+  bar.innerHTML = `<b dir="auto">${esc(text)}</b><span dir="auto">${esc(r.text || '')}</span>
+    <button type="button" class="ka-act" data-ks="1" ${r.text ? '' : 'disabled'}>${saved ? '★' : '☆'} ${esc(t('goal.save'))}</button>
+    <button type="button" class="ka-act go" data-kr="1">▶ ${esc(t('panel.resume'))}</button>`;
+  bar.dataset.word = text; bar.dataset.line = i; bar.dataset.tr = r.text || ''; bar.dataset.rm = r.translit || '';
+}
+$('#karaBtn').onclick = karaOpen;
+$('#kaClose').onclick = () => $('#karaDlg').close();
+$('#karaDlg').addEventListener('close', () => { kara.open = false; kara.pinned = false; });
+$('#kaTr').onchange = () => $('#kaLines').classList.toggle('no-tr', !$('#kaTr').checked);
+$('#kaPlay').onclick = () => { try { if (!playerCtl) return; if (syncPlaying) playerCtl.pause(); else playerCtl.play(); } catch { /* lecteur non prêt */ } kara.pinned = false; };
+$('#kaLines').addEventListener('click', (e) => { const w = e.target.closest('.kw'); if (w) karaWord(w); });
+$('#kaWord').addEventListener('click', (e) => {
+  const s = song(); const bar = $('#kaWord'); if (!s) return;
+  if (e.target.closest('[data-kr]')) { bar.hidden = true; kara.pinned = false; const was = wordPaused; wordPaused = false; if (was && playerCtl) { try { playerCtl.play(); } catch { /* rien */ } } }
+  if (e.target.closest('[data-ks]') && bar.dataset.tr) {
+    const text = bar.dataset.word, cur = state.library.find((x) => norm(x.text) === norm(text));
+    if (cur) state.library = state.library.filter((x) => x !== cur); else saveWord(s, text, bar.dataset.tr, bar.dataset.rm, state.target, s.lines[Number(bar.dataset.line)]);
+    save(); e.target.closest('[data-ks]').textContent = (state.library.some((x) => norm(x.text) === norm(text)) ? '★ ' : '☆ ') + t('goal.save');
+  }
+});
+document.querySelector('.ka-off').addEventListener('click', (e) => { const b = e.target.closest('[data-ko]'); const s = song(); if (!b || !s) return; setOff(s, getOff(s) + Number(b.dataset.ko)); save(); if (!syncPlaying) syncFrame(); });
+document.addEventListener('keydown', (e) => { if (kara.open && e.code === 'Space' && !/^(INPUT|BUTTON)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('#kaPlay').click(); } });
 
 let frameKey = '', formKey = '', playerEditing = false;
 const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);

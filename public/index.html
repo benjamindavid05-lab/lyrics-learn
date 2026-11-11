@@ -132,6 +132,7 @@
         <div class="kickerrow">
           <div id="sArtist" class="label"></div>
           <label class="toggle"><input type="checkbox" id="showTr" checked> <span data-i18n="toggle.tr">Translation</span></label>
+          <button id="karaBtn" class="btn sm karabtn" type="button"><span aria-hidden="true">🎤</span> <span data-i18n="kara.btn">Karaoke mode</span></button>
           <button id="studyBtn" class="btn solid sm studybtn" type="button"><span aria-hidden="true">🎯</span> <span data-i18n="study.btn">Study line by line</span></button>
           <label class="toggle" id="followWrap" hidden><input type="checkbox" id="follow" checked> <span data-i18n="follow.t">Follow the music</span></label>
         </div>
@@ -220,6 +221,16 @@
   <dialog id="playDlg" class="study play" aria-label="Game">
     <div class="st-top"><b id="pgTitle"></b><div class="progress"><div id="pgBar"></div></div><span id="pgStreak" class="pg-streak"></span><button class="x" id="pgClose" type="button" aria-label="Close">✕</button></div>
     <div id="pgBody" class="pg-body"></div>
+  </dialog>
+  <dialog id="karaDlg" class="kara" aria-label="Karaoke">
+    <header class="ka-top"><div class="ka-id"><b id="kaTitle"></b><small id="kaArtist"></small></div>
+      <label class="ka-tr"><input type="checkbox" id="kaTr" checked> <span data-i18n="toggle.tr">Translation</span></label>
+      <button class="ka-x" id="kaClose" type="button" aria-label="Close">✕</button></header>
+    <p id="kaNo" class="ka-no" hidden></p>
+    <div id="kaLines" class="ka-lines" dir="auto"></div>
+    <div id="kaWord" class="ka-word" hidden></div>
+    <footer class="ka-bar"><button type="button" class="ka-btn" id="kaPlay">▶</button><span id="kaTime"></span>
+      <span class="ka-off"><button type="button" class="link" data-ko="-0.3">◀ <span data-i18n="sync.earlier">Earlier</span></button><button type="button" class="link" data-ko="0.3"><span data-i18n="sync.later">Later</span> ▶</button></span></footer>
   </dialog>
   <dialog id="studyDlg" class="study" aria-label="Study mode">
     <div class="st-top"><b id="stCount"></b><div class="progress"><div id="stBar"></div></div><button class="x" id="stClose" type="button" aria-label="Close">✕</button></div>
