@@ -6,7 +6,7 @@ import { pickWords, makeChoice, checkTyped, review, masteredCount, usable, XP_PE
 import { birdSvg, birdXp, birdLevel, BIRD_STAGES } from './bird.js';
 import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
-import { howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
+import { howHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const RTL = new Set(['ar', 'he', 'fa', 'ur']);
@@ -381,7 +381,6 @@ $('#heroAdd').onclick = () => songsDlg.showModal();
 const helpDlg = $('#helpDlg');
 function buildHelp() {
   $('#helpBody').innerHTML = `<h3 class="ht">${esc(t('home.how'))}</h3>${howHtml(t)}
-    <h3 class="ht">${esc(t('help.goal.t'))}</h3>${goalDiagramHtml(t)}
     <h3 class="ht">${esc(t('help.tips.t'))}</h3><ul class="tips">${[1, 2, 3, 4, 5].map((k) => `<li>${esc(t(`help.tip${k}`))}</li>`).join('')}</ul>
     <p id="helpNeed" class="status err" hidden>${esc(t('help.needSong'))}</p>`;
 }

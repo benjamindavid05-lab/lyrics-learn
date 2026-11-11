@@ -38,7 +38,9 @@
         <li><b>Translation</b>: to translate, the lines, words and phrases you view are sent by our server to a translation service (depending on configuration: Google Translate, DeepL or a Google language model). These services apply their own privacy rules.</li>
         <li><b>Song search</b>: the terms you type are sent to the Genius API.</li>
         <li><b>Genius preview</b>: when you pick a song, your browser loads Genius’s official embed (genius.com) in an isolated frame to show the lyrics. If it fails, the window that opens so you can copy the lyrics is Genius’s own website. Both follow Genius’s own rules.</li>
-        <li><b>Music players</b>: to find the song in the players, our server sends its title and artist to Deezer and Apple Music (and to Spotify and YouTube if configured). The player you select (Spotify, Apple Music, Deezer, YouTube or SoundCloud) then loads in the page and may set its own cookies.</li>
+        <li><b>Music players</b>: to find the song in the players, our server sends its title and artist to Deezer, Apple Music and YouTube (search results), and to Spotify if configured. If you paste a music link, the link is sent to the matching service (Spotify, YouTube, Apple Music, Deezer or SoundCloud) to read the title and artist. The player you use (YouTube, Spotify, SoundCloud, Apple Music or Deezer) loads in the page and may set its own cookies.</li>
+        <li><b>Lyric timings</b>: to follow the music, the song’s title and artist are sent by our server to LRCLIB, an open lyrics-timing database.</li>
+        <li><b>Spotify connection (optional)</b>: if you click “Connect Spotify”, you sign in on Spotify’s own page in a small window. Lyrio never sees your password. The access tokens Spotify returns are stored <b>only in your browser</b> and can be erased with the “Disconnect” button or the button above.</li>
       </ul>
 
       <h2>What the server keeps</h2>
@@ -75,7 +77,9 @@
         <li><b>Traduction</b> : pour traduire, les vers, mots et phrases que vous consultez sont envoyés par notre serveur à un service de traduction (selon la configuration : Google Translate, DeepL ou un modèle de langage Google). Ces services appliquent leurs propres règles de confidentialité.</li>
         <li><b>Recherche de chansons</b> : les termes que vous tapez sont envoyés à l’API de Genius.</li>
         <li><b>Aperçu Genius</b> : quand vous choisissez une chanson, votre navigateur charge l’intégration officielle de Genius (genius.com) dans un cadre isolé pour afficher les paroles. En cas d’échec, la fenêtre qui s’ouvre pour copier les paroles est le site de Genius. Les deux suivent les règles propres à Genius.</li>
-        <li><b>Lecteurs de musique</b> : pour retrouver la chanson dans les lecteurs, notre serveur envoie son titre et son artiste à Deezer et Apple Music (et à Spotify et YouTube si configurés). Le lecteur que vous sélectionnez (Spotify, Apple Music, Deezer, YouTube ou SoundCloud) se charge ensuite dans la page et peut déposer ses propres cookies.</li>
+        <li><b>Lecteurs de musique</b> : pour retrouver la chanson dans les lecteurs, notre serveur envoie son titre et son artiste à Deezer, Apple Music et YouTube (résultats de recherche), et à Spotify s’il est configuré. Si vous collez un lien musical, ce lien est envoyé au service correspondant (Spotify, YouTube, Apple Music, Deezer ou SoundCloud) pour lire le titre et l’artiste. Le lecteur que vous utilisez (YouTube, Spotify, SoundCloud, Apple Music ou Deezer) se charge dans la page et peut déposer ses propres cookies.</li>
+        <li><b>Minutage des paroles</b> : pour suivre la musique, le titre et l’artiste de la chanson sont envoyés par notre serveur à LRCLIB, une base ouverte de minutage de paroles.</li>
+        <li><b>Connexion Spotify (facultative)</b> : si vous cliquez sur « Connecter Spotify », vous vous identifiez sur la page de Spotify, dans une petite fenêtre. Lyrio ne voit jamais votre mot de passe. Les jetons d’accès renvoyés par Spotify sont enregistrés <b>uniquement dans votre navigateur</b> et s’effacent avec le bouton « Se déconnecter » ou le bouton ci-dessus.</li>
       </ul>
 
       <h2>Ce que garde le serveur</h2>
@@ -107,7 +111,7 @@
     document.querySelectorAll('[data-lang]').forEach(function (b) { b.onclick = function () { lang = b.dataset.lang; try { localStorage.setItem('ll_ui', lang); } catch (e) {} apply(); }; });
     document.querySelectorAll('.erase').forEach(function (b) { b.onclick = function () {
       if (!confirm(lang === 'fr' ? 'Effacer toutes vos chansons, mots et préférences de ce navigateur ?' : 'Erase all your songs, words and preferences from this browser?')) return;
-      try { localStorage.removeItem('ll_state'); localStorage.removeItem('ll_tip1'); } catch (e) {}
+      try { Object.keys(localStorage).filter(function (k) { return k.indexOf('ll_') === 0; }).forEach(function (k) { localStorage.removeItem(k); }); } catch (e) {} // songs, mots, préférences et jeton Spotify
       document.querySelectorAll('.erased').forEach(function (x) { x.hidden = false; });
     }; });
     apply();

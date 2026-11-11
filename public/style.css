@@ -1242,3 +1242,41 @@ body{padding-bottom:0}
 @media(prefers-reduced-motion:reduce){.brand:hover .wm-i i{animation:none}}
 .wm-i i{font-size:.78em;top:-.42em;transform:translateX(-30%) rotate(-10deg)}
 .beta{margin-left:-4px;margin-top:-6px}
+/* aucune animation décorative ne doit élargir la page */
+.hhero,.staff-wrap,main{overflow-x:clip}
+
+/* --- audit : alignements et cohérence --- */
+.lib li{grid-template-columns:minmax(110px,32%) 1fr auto auto;align-items:center}
+.lib li .mst{margin:0}
+.lib li button[data-del]{align-self:center}
+#export{border:0;background:none;box-shadow:none;padding:6px 2px;font:800 12px var(--sans);letter-spacing:.08em;text-decoration:underline;color:var(--dim);white-space:nowrap}
+#export:hover{background:none;color:var(--ink);transform:none}
+.lib-tools{align-items:center}
+/* un seul style pour les boutons principaux (plus de billet à encoches) */
+.btn.ticket{-webkit-mask:none;mask:none;filter:none;border:2px solid var(--ink);border-radius:14px 8px 13px 8px/8px 13px 8px 14px;background:var(--ink);color:var(--bg);box-shadow:4px 5px 0 #ffe36b,4px 5px 0 2px var(--ink);padding:0 24px;min-height:50px;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn.ticket::before{content:none}
+.play-cta .btn.ticket:hover,.btn.ticket:hover{background:var(--ink);color:var(--bg);transform:translate(-2px,-2px)}
+/* fenêtres : jamais plus hautes que l'écran */
+.study[open]{max-height:94vh;overflow-y:auto}
+.play .pg-body{min-height:0}
+/* en-tête sur mobile : tout tient sur deux lignes */
+@media(max-width:560px){
+  .top{flex-wrap:wrap;gap:6px 10px;padding:8px 14px}
+  .top .brand>.wm{font-size:26px}
+  #openSongs{padding:10px 14px}
+  .helpbtn{width:36px;height:36px}
+  .uilang button{padding:8px 10px}
+  .nav{order:5;flex-basis:100%;justify-content:space-between;gap:0}
+  .nav button{padding:10px 6px;letter-spacing:.12em}
+}
+@media(max-width:700px){.lib li{grid-template-columns:1fr auto auto;gap:6px 12px}.lib li .m{grid-column:1/-1;order:3}}
+@media(max-width:560px){
+  .top{gap:6px 8px;padding:8px 12px}
+  .top .brand{gap:6px}.top .brand>.wm{font-size:24px}.mark{width:34px;height:34px}.mark svg{width:34px;height:34px}
+  #openSongs{padding:9px 11px;font-size:11px;letter-spacing:.1em}
+  .helpbtn{width:32px;height:32px;font-size:14px}
+  .uilang button{padding:6px 8px;font-size:11px}
+  .pg-menu .pg-bird .bird{width:64px;height:64px}.pg-body{padding:18px 16px 16px}
+  .pg-modes button{padding:10px 8px}.pg-modes span{font-size:24px}
+}
+.hero-bird{left:8px}
