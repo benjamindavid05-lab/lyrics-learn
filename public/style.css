@@ -798,3 +798,36 @@ summary:hover{transform:translateX(3px)}
 .tapbar b{font-weight:800}.tapbar span{flex:1 1 220px}
 .tapbar .link{color:#0a0a0a}
 .ln.tapnext{outline:3px dashed var(--c1);outline-offset:6px;border-radius:10px;background:rgba(255,159,138,.15)}
+
+/* ---------- mode étude ---------- */
+.studybtn{margin-left:auto}
+.study{width:min(860px,96vw);max-height:94vh;padding:0;border:2px solid var(--ink);border-radius:22px;background:var(--bg);overflow:hidden}
+.study::backdrop{background:rgba(10,10,10,.6);backdrop-filter:blur(6px)}
+.study[open]{display:flex;flex-direction:column;animation:dlg-in .4s var(--ease)}
+.st-top{display:flex;align-items:center;gap:16px;padding:16px 22px;border-bottom:2px solid var(--ink);background:var(--c2);color:#0a0a0a}
+.st-top b{font:700 15px var(--sans);white-space:nowrap}
+.st-top .progress{flex:1;height:10px;border-radius:99px;background:rgba(0,0,0,.15);overflow:hidden}
+.st-top #stBar{height:100%;border-radius:99px;background:#0a0a0a;transition:width .5s var(--ease)}
+.st-top .x{position:static;color:#0a0a0a}
+#stMain{padding:34px 28px 18px;display:grid;gap:18px;justify-items:center;text-align:center;min-height:330px;align-content:center}
+.st-line{font:600 clamp(28px,5vw,48px)/1.25 var(--serif)}
+.st-line .sw{cursor:pointer;border-radius:10px;padding:0 4px;transition:background .2s,transform .25s var(--spring)}
+.st-line .sw:hover{background:var(--c3);transform:translateY(-3px)}
+.st-line .sw.picked{background:var(--c2)}
+.st-meaning{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;min-height:38px}
+.chip{display:inline-flex;align-items:center;gap:8px;padding:6px 12px;border:2px solid var(--ink);border-radius:99px;background:var(--card);font:600 15px var(--sans);animation:pop-in .3s var(--spring)}
+.chip.on{background:var(--c3)}.chip button{border:0;background:none;font-size:18px;cursor:pointer;color:inherit}
+.st-tr{font:600 20px/1.4 var(--sans);color:var(--dim);opacity:0;transform:translateY(8px);transition:all .4s var(--ease);min-height:30px}
+.st-tr.show{opacity:1;transform:none;color:var(--ink)}
+.st-nav{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:14px 22px 6px}
+.st-nav .btn.on{background:var(--c1);color:#0a0a0a}
+.st-speed{display:inline-flex;border:2px solid var(--ink);border-radius:99px;overflow:hidden}
+.st-speed button{border:0;background:none;padding:6px 10px;font-size:18px;cursor:pointer;opacity:.5;transition:all .2s}
+.st-speed button.on{opacity:1;background:var(--c2)}
+.st-foot{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:8px 22px 16px;font:600 13px var(--sans);color:var(--dim)}
+.st-foot small{flex-basis:100%;text-align:center}
+.st-foot .dot{display:inline-block}
+.st-end{padding:30px 28px 10px;text-align:center;display:grid;gap:14px;justify-items:center}
+.st-end h2{font:700 34px var(--serif);margin:0}.st-win{font-size:64px;animation:pop-in .6s var(--spring)}
+.st-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-height:160px;overflow:auto}
+.studybtn+.toggle{margin-left:0}

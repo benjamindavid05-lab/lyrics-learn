@@ -118,6 +118,7 @@
         <div class="kickerrow">
           <div id="sArtist" class="label"></div>
           <label class="toggle"><input type="checkbox" id="showTr" checked> <span data-i18n="toggle.tr">Translation</span></label>
+          <button id="studyBtn" class="btn solid sm studybtn" type="button"><span aria-hidden="true">🎯</span> <span data-i18n="study.btn">Study line by line</span></button>
           <label class="toggle" id="followWrap" hidden><input type="checkbox" id="follow" checked> <span data-i18n="follow.t">Follow the music</span></label>
         </div>
         <h1 id="sTitle" class="display"></h1>
@@ -128,7 +129,6 @@
           <div id="pframe"></div>
           <div id="pform"></div>
           <div id="syncBar" class="syncbar" hidden></div>
-          <div id="tapBar" class="tapbar" hidden></div>
         </div>
         <div id="tip1" class="hint" hidden><span data-i18n="tip.first">Click a word to translate it. Select several words for an expression.</span><button id="tip1x" data-i18n-aria="common.close" aria-label="Close">✕</button></div>
         <div id="lyrics" class="lyrics"></div>
@@ -193,6 +193,23 @@
     <ul id="songList" class="songs"></ul>
   </dialog>
 
+  <dialog id="studyDlg" class="study" aria-label="Study mode">
+    <div class="st-top"><b id="stCount"></b><div class="progress"><div id="stBar"></div></div><button class="x" id="stClose" type="button" aria-label="Close">✕</button></div>
+    <div id="stMain">
+      <div id="stLine" class="st-line" dir="auto"></div>
+      <div id="stMeaning" class="st-meaning" aria-live="polite"></div>
+      <div id="stTr" class="st-tr" dir="auto"></div>
+      <button id="stReveal" class="btn" type="button"></button>
+    </div>
+    <div id="stEnd" class="st-end" hidden></div>
+    <div class="st-nav">
+      <button id="stPrev" class="btn" type="button" aria-label="Previous">◀</button>
+      <button id="stAuto" class="btn" type="button"></button>
+      <span class="st-speed" id="stSpeed" role="group"><button type="button" data-sp="0.65" title="Slow">🐢</button><button type="button" data-sp="1" class="on" title="Normal">🚶</button><button type="button" data-sp="1.6" title="Fast">🐇</button></span>
+      <button id="stNext" class="btn solid" type="button"></button>
+    </div>
+    <div class="st-foot"><span id="stXp"></span><span id="stFollow"></span><small id="stHint"></small></div>
+  </dialog>
   <dialog id="helpDlg" class="dlg help">
     <button class="x" id="helpX" type="button" data-i18n-aria="common.close" aria-label="Close">✕</button>
     <div class="label" data-i18n="help.btn">Help</div>

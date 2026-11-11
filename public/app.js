@@ -1,7 +1,7 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
-import { alignLines, buildFromTimes, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
+import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
 import { howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
@@ -492,64 +492,7 @@ function youtubeFailed() {
   if (alt) { setPlayer(s, alt, true); save(); renderPlayer(); }
   else { s.ytDead = true; save(); renderSyncBar(s); }
 }
-// ---- relevé du minutage à la main : on appuie à chaque début de vers pendant l'écoute ----
-let tap = null;
-const lineTexts = (s) => s.lines.map((l) => (lineKind(l.text) === 'line' ? l.text : null));
-function tapStart(s) {
-  if (!playerSeen && !(manualOn && manualSong === s.id)) { manualOn = true; manualSong = s.id; feed(0, true, 0); } // pas de lecteur connecté : horloge interne
-  tap = { id: s.id, list: lineTexts(s).map((x, i) => (x != null ? i : -1)).filter((i) => i >= 0), k: 0, times: new Array(s.lines.length).fill(null), hist: [] };
-  renderTap(s); renderSyncBar(s);
-}
-function renderTap(s) {
-  const bar = $('#tapBar'); document.querySelectorAll('#lyrics .ln.tapnext').forEach((e) => e.classList.remove('tapnext'));
-  if (!tap || !s || tap.id !== s.id) { bar.hidden = true; return; }
-  const i = tap.list[tap.k];
-  bar.hidden = false;
-  bar.innerHTML = `<b>⏱ ${esc(t('sync.tapN', { k: tap.k + 1, n: tap.list.length }))}</b> <span>${esc(t('sync.tapHelp'))}</span>
-    <button type="button" class="btn solid" data-tapact="next">${esc(t('sync.tapNext'))}</button>
-    <button type="button" class="link" data-tapact="undo">${esc(t('sync.tapUndo'))}</button> <button type="button" class="link" data-tapact="cancel">${esc(t('sync.tapCancel'))}</button>`;
-  const el = document.querySelector(`#lyrics .ln[data-i="${i}"]`);
-  if (el) { el.classList.add('tapnext'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
-}
-function tapNext(s) {
-  if (!tap || tap.id !== s.id) return;
-  const i = tap.list[tap.k];
-  tap.times[i] = Math.max(0, currentPos() - 0.25); // on appuie toujours un peu après le début : on compense
-  tap.hist.push(i); tap.k++;
-  if (tap.k >= tap.list.length) return tapFinish(s);
-  renderTap(s);
-}
-function tapUndo(s) { if (!tap || !tap.hist.length) return; const i = tap.hist.pop(); tap.times[i] = null; tap.k--; renderTap(s); }
-function applyTimes(s, times, extra) {
-  const b = buildFromTimes(lineTexts(s), times);
-  s.sync = { v: 2, versions: [], ...b, total: b.matched, dur: 0, durChecked: true, custom: true, ...extra };
-  setOff(s, 0); save();
-}
-function tapFinish(s) {
-  const times = tap.times; tap = null; $('#tapBar').hidden = true;
-  document.querySelectorAll('#lyrics .ln.tapnext').forEach((e) => e.classList.remove('tapnext'));
-  applyTimes(s, times, {}); renderSyncBar(s);
-}
-function autoEstimate(s) {
-  const texts = lineTexts(s), idx = texts.map((x, i) => (x != null ? i : -1)).filter((i) => i >= 0);
-  const D = (s.sync && s.sync.playerDur > 30 ? s.sync.playerDur : 0) || syncKnownDur || 200;
-  const start = Math.min(12, D * 0.06), end = D - Math.min(10, D * 0.05);
-  const w = idx.map((i) => texts[i].replace(/\s+/g, '').length + 10), tot = w.reduce((a, b) => a + b, 0);
-  const times = new Array(s.lines.length).fill(null); let acc = 0;
-  idx.forEach((i, k) => { times[i] = start + ((end - start) * acc) / tot; acc += w[k]; });
-  applyTimes(s, times, { estimated: true }); renderSyncBar(s);
-}
-let syncKnownDur = 0;
-document.addEventListener('keydown', (e) => {
-  if (!tap || e.code !== 'Space' || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(document.activeElement && document.activeElement.tagName)) return;
-  e.preventDefault(); const s = song(); if (s) tapNext(s);
-});
-$('#tapBar').addEventListener('click', (e) => {
-  const a = e.target.closest('[data-tapact]'); const s = song(); if (!a || !s) return;
-  if (a.dataset.tapact === 'next') tapNext(s); else if (a.dataset.tapact === 'undo') tapUndo(s);
-  else { tap = null; renderTap(s); renderSyncBar(s); }
-});
-let manualOn = false, manualSong = '', playerSeen = false, playerPreview = false;
+let manualOn = false, manualSong = '', playerSeen = false, playerPreview = false, syncKnownDur = 0;
 // positions envoyées par le lecteur (Spotify, YouTube, SoundCloud)
 function onTick(pos, playing, dur) {
   if (dur > 30) syncKnownDur = dur;
@@ -587,6 +530,7 @@ function syncFrame() {
   let loc; try { loc = locate(s.sync, currentPos() + getOff(s)); } catch { return; }
   if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
     clearPlaying(); syncIdx = loc.i;
+    if (study.open && study.follow && loc.i >= 0) studyGoLine(loc.i);
     syncEl = loc.i >= 0 ? document.querySelector(`#lyrics .ln[data-i="${loc.i}"]`) : null;
     if (syncEl) { syncEl.classList.add('playing'); syncWords = syncEl.querySelectorAll('.w'); if (follow && syncPlaying) syncEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }
@@ -618,73 +562,141 @@ async function ensureSync(s) {
   } catch { s.sync = { none: true, at: Date.now() }; }
   finally { s.syncing = false; save(); chooseVideo(s); if (state.current === s.id) renderSyncBar(s); }
 }
+let fixOpen = false;
+// Barre discrète sous le lecteur : elle n'apparaît que si le suivi de la musique est possible, sans aucun réglage technique en avant.
 function renderSyncBar(s, p) {
   const bar = $('#syncBar'); if (!bar) return;
   if (!p) p = s.playerPref && s.players[s.playerPref];
-  if (!p) { bar.hidden = true; return; }
+  const ready = !!(p && s.sync && s.sync.v === 2 && s.sync.times && canSync(p.provider));
   let html = '';
-  const ready = s.sync && s.sync.v === 2 && s.sync.times;
-  if (s.ytDead && p.provider === 'YouTube') html = `<span>${esc(t('sync.ytDead'))}</span>`;
-  else if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
-  else if (s.sync.none) html = `<span>${esc(t('sync.none2'))}</span><span class="syncman"><button type="button" class="btn sm solid" data-tap="start">⏱ ${esc(t('sync.tap'))}</button> <button type="button" class="btn sm" data-tap="auto" title="${esc(t('sync.autoTip'))}">≈ ${esc(t('sync.auto2'))}</button></span>`;
-  else if (ready) {
-    const exactShare = s.sync.exactLines / Math.max(1, s.sync.total);
-    const mode = exactShare >= 0.6 ? t('sync.exact') : t('sync.approx');
-    const mine = manualOn && manualSong === s.id;
-    const link = canSync(p.provider)
-      ? (mine ? `<span class="syncst"><b class="dot man"></b>${esc(t('sync.manualOn'))}</span>` : playerSeen && playerPreview ? `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.preview'))}${s.players.youtube && s.playerPref !== 'youtube' ? ` <button type="button" class="btn sm solid" data-switch="youtube">${esc(t('sync.toYoutube'))}</button>` : ''}</span>` : playerSeen ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.connected'))}</span>` : `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.waiting'))}</span>`)
-      : `<span class="syncst"><b class="dot man"></b>${esc(t('sync.unsupported'))}</span>`;
-    const manual = mine
-      ? `<button type="button" class="btn sm" data-man="toggle">${syncPlaying ? '⏸ ' + esc(t('sync.pause')) : '▶ ' + esc(t('sync.resume'))}</button> <button type="button" class="link" data-man="restart">↺ ${esc(t('sync.restart'))}</button> <button type="button" class="link" data-man="off">✕ ${esc(t('sync.auto'))}</button>`
-      : `<button type="button" class="btn sm${!canSync(p.provider) || !playerSeen ? ' solid' : ''}" data-man="on" title="${esc(t('sync.manualTip'))}">▶ ${esc(t('sync.manual'))}</button>`;
-    const pd = s.sync.playerDur, mm = pd && s.sync.dur ? Math.abs(pd - s.sync.dur) : null;
-    const fit = mm == null ? '' : mm <= 2.5 ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.match'))}</span>`
-      : `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.mismatch', { a: Math.round(pd), b: Math.round(s.sync.dur) }))}${(s.ytAlts || []).some((u) => !(s.ytBad || []).includes(u)) ? ` <button type="button" class="btn sm solid" data-nextvid="1">${esc(t('sync.nextVideo'))}</button>` : ''}</span>`;
-    const custom = s.sync.custom ? `<button type="button" class="link" data-tap="start">↺ ${esc(t('sync.redo'))}</button>` : '';
-    html = `<span class="syncon"><b>♪</b> ${esc(s.sync.custom ? (s.sync.estimated ? t('sync.estimated') : t('sync.custom')) : mode)}</span>${custom}${fit}${link}<span class="syncman">${manual}</span>
-    <span class="syncoff"><button type="button" class="link" data-align="1" title="${esc(t('sync.alignTip'))}">${esc(t('sync.align'))}</button>
-      <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${getOff(s) > 0 ? '+' : ''}${getOff(s).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
+  if (ready && playerSeen && playerPreview) {
+    html = `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.preview2'))}${s.players.youtube && s.playerPref !== 'youtube' ? ` <button type="button" class="btn sm solid" data-switch="youtube">${esc(t('sync.toYoutube'))}</button>` : ''}</span>`;
+  } else if (ready && playerSeen) {
+    html = `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.following'))}</span> <button type="button" class="link" data-fix="1">${esc(t('sync.outOf'))}</button>`
+      + (fixOpen ? ` <span class="syncoff"><button type="button" class="link" data-off="-0.3">◀ ${esc(t('sync.earlier'))}</button><em>${getOff(s) > 0 ? '+' : ''}${getOff(s).toFixed(1)} s</em><button type="button" class="link" data-off="0.3">${esc(t('sync.later'))} ▶</button><button type="button" class="link" data-off="0">${esc(t('sync.reset'))}</button></span>` : '');
+  } else if (ready) {
+    html = `<span class="syncst"><b class="dot wait"></b>${esc(t('sync.press'))}</span>`;
   }
-  bar.innerHTML = html; bar.hidden = false;
-  $('#followWrap').hidden = !ready;
+  bar.innerHTML = html; bar.hidden = !html;
+  $('#followWrap').hidden = !(ready && playerSeen);
   $('#follow').checked = follow;
 }
 $('#syncBar').addEventListener('click', (e) => {
-  const s = song(); if (!s || !s.sync) return;
-  const tp0 = e.target.closest('[data-tap]');
-  if (tp0) { if (tp0.dataset.tap === 'start') tapStart(s); else autoEstimate(s); return; }
-  if (!s.sync.times || s.sync.v !== 2) return;
-  if (e.target.closest('[data-nextvid]')) {
-    const bad = (s.ytBad = s.ytBad || []); if (s.players.youtube) bad.push(s.players.youtube.url);
-    const vs = (s.sync.versions || []).map((v) => v.d);
-    const alt = (s.ytAlts || []).filter((u) => !bad.includes(u)).sort((a, b) => Math.min(...vs.map((d) => Math.abs((s.ytSecs[a] || 0) - d))) - Math.min(...vs.map((d) => Math.abs((s.ytSecs[b] || 0) - d))))[0];
-    if (alt) { setPlayer(s, alt, true); s.playerPref = pref = 'youtube'; s.sync.playerDur = 0; s.sync.durChecked = false; save(); renderPlayer(); }
-    return;
-  }
+  const s = song(); if (!s) return;
   const sw = e.target.closest('[data-switch]');
   if (sw && s.players[sw.dataset.switch]) { s.playerPref = pref = sw.dataset.switch; try { localStorage.setItem('ll_pp', pref); } catch {} save(); renderPlayer(); return; }
-  const man = e.target.closest('[data-man]');
-  if (man) {
-    const k = man.dataset.man;
-    if (k === 'on') { manualOn = true; manualSong = s.id; feed(0, true, 0); }
-    else if (k === 'toggle') { if (syncPlaying) feed(currentPos(), false, 0); else feed(syncPos, true, 0); }
-    else if (k === 'restart') feed(0, true, 0);
-    else if (k === 'off') { manualOn = false; manualSong = ''; syncPlaying = false; clearPlaying(); }
-    renderSyncBar(s); return;
-  }
-  const a = e.target.closest('[data-align]');
-  if (a) {
-    // « Cette ligne est chantée maintenant » : on aligne le minutage sur la ligne sélectionnée (clic sur un mot de cette ligne)
-    const i = activeLine != null && s.sync.times[activeLine] != null ? activeLine : (syncIdx >= 0 ? syncIdx : -1);
-    if (i < 0) return setStatus(t('sync.alignNone'), true);
-    setOff(s, s.sync.times[i] - currentPos());
-    save(); renderSyncBar(s); if (!syncPlaying) syncFrame(); return;
-  }
-  const b = e.target.closest('[data-off]'); if (!b) return;
-  setOff(s, getOff(s) + Number(b.dataset.off)); save(); renderSyncBar(s);
+  if (e.target.closest('[data-fix]')) { fixOpen = !fixOpen; renderSyncBar(s); return; }
+  const b = e.target.closest('[data-off]'); if (!b || !s.sync || !s.sync.times) return;
+  setOff(s, Number(b.dataset.off) === 0 ? 0 : getOff(s) + Number(b.dataset.off)); save(); renderSyncBar(s);
   if (!syncPlaying) syncFrame();
 });
 $('#follow').onchange = () => { follow = $('#follow').checked; try { localStorage.setItem('ll_follow', follow ? '1' : '0'); } catch {} };
+
+
+// ---------- mode étude : une ligne à la fois, à votre rythme ----------
+const study = { open: false, list: [], k: 0, shown: false, auto: false, speed: 1, timer: 0, looked: new Map(), follow: false, chips: [] };
+function studyOpen() {
+  const s = song(); if (!s) return;
+  const list = s.lines.map((l, i) => (lineKind(l.text) === 'line' ? i : -1)).filter((i) => i >= 0);
+  if (!list.length) return;
+  Object.assign(study, { open: true, list, k: 0, shown: false, auto: false, looked: new Map(), follow: false, chips: [] });
+  const start = syncPlaying && syncIdx >= 0 ? syncIdx : activeLine != null ? activeLine : list[0];
+  const k = list.indexOf(start); if (k >= 0) study.k = k;
+  study.follow = !!(syncPlaying && s.sync && s.sync.times && s.sync.v === 2);
+  $('#studyDlg').showModal(); studyRender();
+}
+function studyClose() { clearTimeout(study.timer); study.open = false; study.auto = false; if ($('#studyDlg').open) $('#studyDlg').close(); }
+function studyLineHtml(text, lineIdx) {
+  let out = '', last = 0;
+  for (const m of text.matchAll(WORD_RE)) { out += esc(text.slice(last, m.index)) + `<span class="sw" data-n="${esc(norm(m[0]))}" data-l="${lineIdx}">${esc(m[0])}</span>`; last = m.index + m[0].length; }
+  return out + esc(text.slice(last));
+}
+function studyRender() {
+  const s = song(); if (!s || !study.open) return;
+  const n = study.list.length, end = study.k >= n;
+  $('#stMain').hidden = end; $('#stEnd').hidden = !end;
+  $('#stBar').style.width = `${Math.min(100, (study.k / n) * 100)}%`;
+  $('#stCount').textContent = end ? '🎉' : t('study.count', { k: study.k + 1, n });
+  $('#stPrev').disabled = study.k === 0; $('#stNext').textContent = end ? t('study.close') : t('study.next') + ' ▶';
+  $('#stAuto').textContent = study.auto ? '⏸ ' + t('study.pause') : '▶ ' + t('study.auto');
+  $('#stAuto').classList.toggle('on', study.auto);
+  document.querySelectorAll('#stSpeed button').forEach((b) => b.classList.toggle('on', Number(b.dataset.sp) === study.speed));
+  $('#stXp').textContent = '⭐ ' + t(study.looked.size === 1 ? 'study.word1' : 'study.words', { n: study.looked.size });
+  const canFollow = !!(s.sync && s.sync.times && s.sync.v === 2 && syncPlaying);
+  $('#stFollow').innerHTML = study.follow ? `<b class="dot ok"></b> ${esc(t('study.following'))}` : canFollow ? `<button type="button" class="link" id="stResume">♪ ${esc(t('study.resume'))}</button>` : '';
+  $('#stHint').textContent = t('study.hint');
+  if (end) {
+    const saved = new Set(state.library.map((e) => norm(e.text)));
+    const items = [...study.looked.values()];
+    $('#stEnd').innerHTML = `<div class="st-win">🎉</div><h2>${esc(t('study.done'))}</h2><p>${esc(t(items.length === 1 ? 'study.summary1' : 'study.summary', { n: items.length }))}</p>
+      ${items.length ? `<div class="st-words">${items.map((w) => `<span class="chip${saved.has(norm(w.text)) ? ' on' : ''}"><b>${esc(w.text)}</b> ${esc(w.tr)}</span>`).join('')}</div><button class="btn solid" type="button" id="stSaveAll">☆ ${esc(t('study.saveAll'))}</button>` : ''}
+      <button class="btn" type="button" id="stAgain">↺ ${esc(t('study.again'))}</button>`;
+    return;
+  }
+  const i = study.list[study.k], l = s.lines[i];
+  $('#stLine').innerHTML = studyLineHtml(l.text, i);
+  $('#stTr').textContent = l.tr || '…'; $('#stTr').classList.toggle('show', study.shown);
+  $('#stReveal').textContent = study.shown ? '🙈 ' + t('study.hide') : '👁 ' + t('study.show');
+  $('#stMeaning').innerHTML = study.chips.map((c, m) => `<span class="chip"><b>${esc(c.text)}</b> ${c.tr ? esc(c.tr) : '…'} ${c.tr ? `<button type="button" data-stsave="${m}" aria-label="${esc(t('goal.save'))}">${state.library.some((e) => norm(e.text) === norm(c.text)) ? '★' : '☆'}</button>` : ''}</span>`).join('');
+  clearTimeout(study.timer);
+  if (study.auto) {
+    const chars = l.text.replace(/\s+/g, '').length, delay = Math.min(9, Math.max(2.6, 1.8 + chars * 0.08)) / study.speed;
+    study.timer = setTimeout(() => { study.shown = true; $('#stTr').classList.add('show'); $('#stReveal').textContent = '🙈 ' + t('study.hide'); study.timer = setTimeout(() => studyStep(1, true), (delay * 1000) / 2); }, (delay * 1000) / 2);
+  }
+}
+function studyStep(d, keepAuto) {
+  const n = study.list.length; if (!keepAuto) { study.auto = false; study.follow = false; }
+  study.k = Math.max(0, Math.min(n, study.k + d)); study.shown = false; study.chips = [];
+  if (study.k >= n) study.auto = false;
+  studyRender();
+}
+function studyGoLine(i) {
+  const k = study.list.indexOf(i);
+  if (k >= 0 && k !== study.k) { study.k = k; study.shown = false; study.chips = []; studyRender(); }
+}
+async function studyWord(span) {
+  const s = song(); const text = span.textContent, i = Number(span.dataset.l);
+  study.auto = false; clearTimeout(study.timer); $('#stAuto').textContent = '▶ ' + t('study.auto'); $('#stAuto').classList.remove('on');
+  let chip = study.chips.find((c) => norm(c.text) === norm(text));
+  if (!chip) { chip = { text, tr: '', rm: '', line: i }; study.chips.push(chip); }
+  span.classList.add('picked'); studyRenderChips();
+  const key = `${state.target}|${text}|${i}`;
+  let r = wordCache.get(key) || (s.wordsTarget === state.target && s.words && s.words[norm(text)]);
+  if (!r) { try { r = await api('/api/translate', { text, target: state.target, source: s.source, context: s.lines[i].text }); wordCache.set(key, r); } catch { r = { text: t('panel.busy'), translit: '' }; } }
+  chip.tr = r.text; chip.rm = r.translit || '';
+  if (r.text && r.text !== t('panel.busy')) study.looked.set(norm(text), { text, tr: r.text, rm: chip.rm, line: i });
+  studyRenderChips(); $('#stXp').textContent = '⭐ ' + t(study.looked.size === 1 ? 'study.word1' : 'study.words', { n: study.looked.size });
+}
+function studyRenderChips() {
+  $('#stMeaning').innerHTML = study.chips.map((c, m) => `<span class="chip"><b>${esc(c.text)}</b> ${c.tr ? esc(c.tr) : '…'} ${c.tr ? `<button type="button" data-stsave="${m}" aria-label="${esc(t('goal.save'))}">${state.library.some((e) => norm(e.text) === norm(c.text)) ? '★' : '☆'}</button>` : ''}</span>`).join('');
+}
+$('#studyBtn').onclick = studyOpen;
+$('#stClose').onclick = studyClose;
+$('#studyDlg').addEventListener('close', () => { clearTimeout(study.timer); study.open = false; study.auto = false; });
+$('#stNext').onclick = () => (study.k >= study.list.length ? studyClose() : studyStep(1));
+$('#stPrev').onclick = () => studyStep(-1);
+$('#stReveal').onclick = () => { study.shown = !study.shown; $('#stTr').classList.toggle('show', study.shown); $('#stReveal').textContent = study.shown ? '🙈 ' + t('study.hide') : '👁 ' + t('study.show'); };
+$('#stAuto').onclick = () => { study.auto = !study.auto; study.follow = false; if (study.k >= study.list.length) study.k = 0; studyRender(); };
+$('#stSpeed').onclick = (e) => { const b = e.target.closest('[data-sp]'); if (!b) return; study.speed = Number(b.dataset.sp); studyRender(); };
+$('#stLine').addEventListener('click', (e) => { const w = e.target.closest('.sw'); if (w) studyWord(w); });
+$('#stMeaning').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-stsave]'); const s = song(); if (!b || !s) return;
+  const c = study.chips[Number(b.dataset.stsave)]; if (!c || !c.tr) return;
+  const cur = state.library.find((x) => norm(x.text) === norm(c.text));
+  if (cur) state.library = state.library.filter((x) => x !== cur); else saveWord(s, c.text, c.tr, c.rm, state.target, s.lines[c.line]);
+  save(); studyRenderChips(); render();
+});
+$('#stFollow').addEventListener('click', (e) => { if (e.target.closest('#stResume')) { study.follow = true; if (syncIdx >= 0) studyGoLine(syncIdx); studyRender(); } });
+$('#stEnd').addEventListener('click', (e) => {
+  const s = song(); if (!s) return;
+  if (e.target.closest('#stAgain')) { study.k = 0; study.shown = false; study.chips = []; study.looked = new Map(); studyRender(); }
+  if (e.target.closest('#stSaveAll')) { for (const w of study.looked.values()) if (!state.library.some((x) => norm(x.text) === norm(w.text))) saveWord(s, w.text, w.tr, w.rm, state.target, s.lines[w.line]); save(); render(); studyRender(); }
+});
+document.addEventListener('keydown', (e) => {
+  if (!study.open) return;
+  if (e.code === 'Space') { e.preventDefault(); if (study.k >= study.list.length) return; if (!study.shown) { study.shown = true; $('#stTr').classList.add('show'); $('#stReveal').textContent = '🙈 ' + t('study.hide'); } else studyStep(1); }
+  else if (e.code === 'ArrowRight') { e.preventDefault(); studyStep(1); } else if (e.code === 'ArrowLeft') { e.preventDefault(); studyStep(-1); }
+});
 
 let frameKey = '', formKey = '', playerEditing = false;
 const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);
