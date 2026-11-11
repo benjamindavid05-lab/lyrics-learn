@@ -27,6 +27,10 @@ async function api(path, body) {
   if (!res.ok) throw new Error(String(data.error || `${t('common.error')} ${res.status}`).replace(/Gemini|DeepL/gi, t('engine.name')));
   return data;
 }
+function toast(msg) {
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = msg;
+  document.body.append(el); setTimeout(() => el.classList.add('out'), 4200); setTimeout(() => el.remove(), 4700);
+}
 const setStatus = (m, err) => { const s = $('#status'); s.textContent = m; s.classList.toggle('err', !!err); };
 
 // ---------- langues ----------
@@ -50,7 +54,7 @@ async function addSong({ title, artist, url, lyrics, gid, sample, example }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
   state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, example: !!example, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
-  if (pendingPlayer && !sample) { state.songs[id].players = state.songs[id].players || {}; const k = setPlayer(state.songs[id], pendingPlayer, true); if (k) state.songs[id].playerPref = k; }
+  if (pendingPlayer && !sample) { state.songs[id].players = state.songs[id].players || {}; const k = setPlayer(state.songs[id], pendingPlayer, true); if (k && MAIN_SERVICES.includes(k) && (k !== 'spotify' || spot.isConnected())) state.songs[id].playerPref = k; }
   pendingPlayer = '';
   state.current = id;
   save();
@@ -464,7 +468,14 @@ function setPlayer(s, url, overwrite = false) {
   if (!overwrite && s.players[k]) return k;
   s.players[k] = { ...p, url }; return k;
 }
+const MAIN_SERVICES = ['youtube', 'spotify', 'soundcloud'];
+function visibleServices(s) {
+  const main = MAIN_SERVICES.filter((k) => s.players[k]);
+  return main.length ? main : SERVICES.map(([k]) => k).filter((k) => s.players[k]);
+}
 function pickPlayer(s) {
+  // un lecteur Apple Music / Deezer mémorisé avant la simplification est remplacé par YouTube quand il existe
+  if (s.playerPref && !MAIN_SERVICES.includes(s.playerPref) && MAIN_SERVICES.some((k) => s.players[k])) s.playerPref = '';
   if (s.playerPref && s.players[s.playerPref]) return;
   const have = ['youtube', 'soundcloud', 'spotify', 'deezer', 'apple'].filter((k) => s.players[k]);
   s.playerPref = pref && s.players[pref] ? pref : (have[0] || '');
@@ -542,7 +553,14 @@ function onTick(pos, playing, dur) {
   if (manualOn && s0 && manualSong === s0.id) return; // mode manuel : l'horloge interne prend le relais
   // Spotify non connecté : lecture d'un extrait de 30 s dont la position ne correspond pas à celle de la chanson
   const prev = !!(dur && dur < 45 && s0 && s0.sync && s0.sync.dur > 90);
-  if (!playerSeen || prev !== playerPreview) { playerSeen = true; playerPreview = prev; if (s0) renderSyncBar(s0); }
+  if (!playerSeen || prev !== playerPreview) {
+    playerSeen = true; playerPreview = prev;
+    // extrait de 30 s : on passe tout seul à YouTube s'il existe (une seule fois par chanson)
+    if (prev && s0 && s0.players.youtube && s0.playerPref === 'spotify' && !s0.spSwitched) {
+      s0.spSwitched = true; s0.playerPref = pref = 'youtube'; save(); toast(t('sp.autoYt')); renderPlayer(); return;
+    }
+    if (s0) renderSyncBar(s0);
+  }
   feed(pos, playing, dur);
 }
 const offKey = (s) => { const p = s.players && s.players[s.playerPref]; return p ? p.src : ''; };
@@ -967,7 +985,7 @@ function renderPlayer() {
   const sel = s.playerPref && s.players[s.playerPref] ? s.playerPref : '';
   // onglets : peuvent être redessinés à tout moment sans toucher au lecteur
   $('#ptabs').innerHTML = `<span class="label">${esc(t('player.listenLabel'))}</span>`
-    + SERVICES.map(([k, name]) => `<button type="button" class="ptab${sel === k ? ' on' : ''}" data-svc="${k}" ${s.players[k] ? '' : 'disabled'} title="${s.players[k] ? '' : esc(t('player.notFound'))}">${esc(name)}</button>`).join('')
+    + (visibleServices(s).length > 1 ? SERVICES.filter(([k]) => visibleServices(s).includes(k)).map(([k, name]) => `<button type="button" class="ptab${sel === k ? ' on' : ''}" data-svc="${k}">${esc(name)}</button>`).join('') : '')
     + (s.finding ? `<span class="small pfind">${esc(t('player.finding'))}</span>` : '')
     + `<span class="pspace"></span><button class="link" type="button" data-p="change">${esc(t('player.link'))}</button>`
     + (sel ? `<button class="link" type="button" data-p="remove">${esc(t('player.remove'))}</button>` : '');
