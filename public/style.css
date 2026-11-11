@@ -774,3 +774,9 @@ summary:hover{transform:translateX(3px)}
 .cell.done .ct{color:#0a0a0a;opacity:.7}
 .cell.done .tick{background:#0a0a0a;color:var(--c3);border-color:#0a0a0a;opacity:1;transform:scale(1.15)}
 @media(max-width:960px){.goalempty,.goalfoot,.goalwin{padding-left:18px;padding-right:18px}}
+
+/* « Commencez ici » : la flèche pointe vers le bas du bouton, le texte est posé à côté, le tout aligné sur le bouton */
+.cta-hint{align-items:center;gap:8px;padding-left:22px;margin-top:-2px;animation:hint2 1.8s ease-in-out infinite}
+.cta-hint svg{width:64px;height:38px;margin-top:0}
+.cta-hint b{font-size:20px;line-height:1;margin-top:10px}
+@keyframes hint2{0%,100%{transform:rotate(-2deg) translateY(0)}50%{transform:rotate(-2deg) translateY(-5px)}}
