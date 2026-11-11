@@ -780,3 +780,10 @@ summary:hover{transform:translateX(3px)}
 .cta-hint svg{width:64px;height:38px;margin-top:0}
 .cta-hint b{font-size:20px;line-height:1;margin-top:10px}
 @keyframes hint2{0%,100%{transform:rotate(-2deg) translateY(0)}50%{transform:rotate(-2deg) translateY(-5px)}}
+
+.cell .sv{position:absolute;top:5px;right:30px;border:0;background:none;color:inherit;font-size:17px;line-height:1;padding:3px 4px;opacity:.55;cursor:pointer;transition:transform .25s var(--spring),opacity .2s}
+.cell .sv:hover:not(:disabled){opacity:1;transform:scale(1.25)}
+.cell .sv.on{opacity:1;color:#d49a00}
+.cell .sv:disabled{opacity:.15;cursor:default}
+.cell.done .sv.on{color:#0a0a0a}
+.goalwin .btn{margin-left:10px;vertical-align:middle}

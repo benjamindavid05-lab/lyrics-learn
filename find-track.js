@@ -128,32 +128,36 @@ async function youtubeScrape(wt, wa) {
     if (/official/i.test(c.title)) sc += 2; if (/lyric|audio/i.test(c.title)) sc += 1;
     return { ...c, sc };
   }).filter((c) => c.sc >= 2).sort((a, b) => b.sc - a.sc);
-  for (const c of cands.slice(0, 4)) {
+  const found = [];
+  for (const c of cands.slice(0, 6)) {
     // oEmbed refuse (401) les vidéos dont l'intégration est interdite
-    try { const o = await fetch('https://www.youtube.com/oembed?format=json&url=' + q('https://www.youtube.com/watch?v=' + c.id), { signal: AbortSignal.timeout(6000) }); if (o.ok) return `https://www.youtube.com/watch?v=${c.id}`; } catch { /* suivant */ }
+    try { const o = await fetch('https://www.youtube.com/oembed?format=json&url=' + q('https://www.youtube.com/watch?v=' + c.id), { signal: AbortSignal.timeout(6000) }); if (o.ok) found.push(`https://www.youtube.com/watch?v=${c.id}`); } catch { /* suivant */ }
+    if (found.length >= 4) break;
   }
-  return '';
+  return found;
 }
 
 async function youtube(wt, wa) {
   const key = process.env.YOUTUBE_API_KEY;
-  if (!key) return youtubeScrape(wt, wa);
+  if (!key) return youtubeScrape(wt, wa); // liste de candidats
   const d = await getJson(`https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=5&q=${q(`${wa[0] || ''} ${wt[0]}`.trim())}&key=${q(key)}`);
+  const out = [];
   for (const it of d.items || []) {
     const title = it.snippet?.title || '', chan = it.snippet?.channelTitle || '';
     const okTitle = wt.some((w) => sim(title, w) >= 0.5), okArtist = !wa.length || wa.some((w) => sim(`${title} ${chan}`, w) >= 0.34);
-    if (okTitle && okArtist && /^[A-Za-z0-9_-]{6,15}$/.test(it.id?.videoId || '')) return `https://www.youtube.com/watch?v=${it.id.videoId}`;
+    if (okTitle && okArtist && /^[A-Za-z0-9_-]{6,15}$/.test(it.id?.videoId || '')) out.push(`https://www.youtube.com/watch?v=${it.id.videoId}`);
   }
-  return '';
+  return out;
 }
 
 const ok = (r) => (r.status === 'fulfilled' ? r.value || '' : '');
 
 export async function findTracks({ title, artist }) {
   const wt = variants(title), wa = variants(artist);
-  if (!wt.length) return { deezer: '', apple: '', spotify: '', youtube: '' };
+  if (!wt.length) return { deezer: '', apple: '', spotify: '', youtube: '', youtubeAlts: [] };
   const [dz, ap, sp, yt] = await Promise.allSettled([deezer(wt, wa), apple(wt, wa), spotify(wt, wa), youtube(wt, wa)]);
-  return { deezer: ok(dz), apple: ok(ap), spotify: ok(sp), youtube: ok(yt) };
+  const yts = yt.status === 'fulfilled' && Array.isArray(yt.value) ? yt.value : [];
+  return { deezer: ok(dz), apple: ok(ap), spotify: ok(sp), youtube: yts[0] || '', youtubeAlts: yts.slice(1) };
 }
 
 // Vérifie que les identifiants Spotify fonctionnent (sans jamais les afficher).

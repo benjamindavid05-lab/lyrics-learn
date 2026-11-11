@@ -129,7 +129,7 @@ const within = (p, ms) => Promise.race([p, new Promise((_, rej) => setTimeout(()
 export const canSync = (provider) => ['Spotify', 'YouTube', 'SoundCloud'].includes(provider);
 
 // Branche un lecteur déjà affiché (iframe) et appelle onTick(secondes, enLecture). Renvoie une fonction d'arrêt.
-export async function attachPlayer(provider, iframe, onTick) {
+export async function attachPlayer(provider, iframe, onTick, onFail) {
   let stop = () => {};
   if (provider === 'YouTube') {
     await within(new Promise((resolve) => {
@@ -139,7 +139,7 @@ export async function attachPlayer(provider, iframe, onTick) {
       loadScript('https://www.youtube.com/iframe_api').catch(() => {});
     }), 8000);
     let timer = null;
-    const player = new window.YT.Player(iframe, { events: { onStateChange: (e) => {
+    const player = new window.YT.Player(iframe, { events: { onError: (e) => { try { onFail && onFail(e.data); } catch {} }, onStateChange: (e) => {
       clearInterval(timer);
       const playing = e.data === 1;
       const push = () => { try { onTick(player.getCurrentTime(), playing, player.getDuration()); } catch {} };

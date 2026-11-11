@@ -143,6 +143,11 @@ async function prefetchWords(s, target) {
   save(); if (state.current === s.id) renderGoal();
 }
 
+// Enregistre un mot dans la bibliothèque avec sa traduction (dans la langue choisie) et la phrase d'où il vient
+function saveWord(s, text, tr, rm, lang, line) {
+  const l = line || s.lines.find((x) => [...x.text.matchAll(WORD_RE)].some((m) => norm(m[0]) === norm(text))) || { text: '', tr: '' };
+  state.library.unshift({ id: crypto.randomUUID(), text, tr, rm: rm || '', lang, src: normLang(s.source) || guessScript(text) || guessScript(l.text), sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
+}
 function ctxFor(word) {
   const n = norm(word);
   const l = song().lines.find((x) => [...x.text.matchAll(WORD_RE)].some((m) => norm(m[0]) === n));
@@ -248,10 +253,11 @@ function renderGoal() {
       </ol>
       <p class="gtip">✓ ${esc(t('goal.then'))}</p>`;
   } else {
+    const savedSet = new Set(state.library.map((e) => norm(e.text)));
     $('#goalGrid').innerHTML = ws.map((w, i) => `<div class="cell${w.done ? ' done' : ''}" data-i="${i}" role="checkbox" aria-checked="${!!w.done}" tabindex="0" title="${esc(w.note || t('goal.tick'))}">
-      <i class="tick" aria-hidden="true">✓</i><button class="rm" data-rm="${i}" aria-label="${t('common.remove')}">✕</button>
+      <i class="tick" aria-hidden="true">✓</i><button class="sv${savedSet.has(norm(w.word)) ? ' on' : ''}" data-sv="${i}" ${w.tr ? '' : 'disabled'} title="${esc(savedSet.has(norm(w.word)) ? t('goal.unsave') : t('goal.save'))}" aria-label="${esc(t('goal.save'))}" aria-pressed="${savedSet.has(norm(w.word))}">${savedSet.has(norm(w.word)) ? '★' : '☆'}</button><button class="rm" data-rm="${i}" aria-label="${t('common.remove')}">✕</button>
       <b class="cw"><bdi>${esc(w.word)}</bdi></b><span class="ct">${esc(w.tr || '…')}</span></div>`).join('');
-    $('#goalWin').innerHTML = `<b>🎉 ${esc(t('goal.win', { n: ws.length }))}</b>`;
+    $('#goalWin').innerHTML = `<b>🎉 ${esc(t('goal.win', { n: ws.length }))}</b> <button class="btn sm" type="button" data-svall="1">☆ ${esc(t('goal.saveAll'))}</button>`;
     $('#goalFoot').innerHTML = `<label>${esc(t('goal.size'))} ${stepper('sm')}</label><button class="btn" type="button" data-act="suggest">✨ ${esc(t('goal.moreN'))}</button>`;
   }
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
@@ -440,6 +446,7 @@ async function loadMedia(s) {
       try {
         const { tracks } = await api(`/api/find-track?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}`);
         for (const k of ['spotify', 'apple', 'deezer', 'youtube']) if (tracks?.[k]) setPlayer(s, tracks[k]);
+        s.ytAlts = Array.isArray(tracks?.youtubeAlts) ? tracks.youtubeAlts : [];
       } catch { /* pas bloquant */ }
     }
     pickPlayer(s);
@@ -454,6 +461,14 @@ function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; 
 function clearPlaying() {
   if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
+}
+// Vidéo YouTube injouable ici (région, intégration refusée, supprimée) : on passe automatiquement à la suivante
+function youtubeFailed() {
+  const s = song(); if (!s || !s.players.youtube) return;
+  const bad = (s.ytBad = s.ytBad || []); bad.push(s.players.youtube.url);
+  const alt = (s.ytAlts || []).find((u) => !bad.includes(u));
+  if (alt) { setPlayer(s, alt, true); save(); renderPlayer(); }
+  else { s.ytDead = true; save(); renderSyncBar(s); }
 }
 let manualOn = false, manualSong = '', playerSeen = false, playerPreview = false;
 // positions envoyées par le lecteur (Spotify, YouTube, SoundCloud)
@@ -523,7 +538,8 @@ function renderSyncBar(s, p) {
   if (!p) { bar.hidden = true; return; }
   let html = '';
   const ready = s.sync && s.sync.v === 2 && s.sync.times;
-  if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
+  if (s.ytDead && p.provider === 'YouTube') html = `<span>${esc(t('sync.ytDead'))}</span>`;
+  else if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
   else if (s.sync.none) html = `<span>${esc(t('sync.none'))}</span>`;
   else if (ready) {
     const exactShare = s.sync.exactLines / Math.max(1, s.sync.total);
@@ -602,7 +618,7 @@ function renderPlayer() {
         attachSpotify($('#spHost'), `spotify:track:${spTrack[1]}`, onTick).then(ok).catch(() => {
           const host = $('#spHost'); if (host && frameKey === fk) host.outerHTML = iframeHtml(p.src);
         });
-      } else attachPlayer(p.provider, $('#pframe iframe'), onTick).then(ok).catch(() => {});
+      } else attachPlayer(p.provider, $('#pframe iframe'), onTick, youtubeFailed).then(ok).catch(() => {});
     }
   }
   ensureSync(s); renderSyncBar(s, p);
@@ -719,7 +735,7 @@ pop.addEventListener('click', (e) => {
     }
     if (!popCtx.tr) return; // on n'enregistre jamais un mot sans sa traduction
     const l = s.lines[popCtx.lineIdx];
-    state.library.unshift({ id: crypto.randomUUID(), text: popCtx.text, tr: popCtx.tr, rm: popCtx.rm, lang: state.target, src: normLang(s.source) || guessScript(popCtx.text) || guessScript(l.text), sentence: l.text, sentenceTr: l.tr || '', title: s.title, artist: s.artist, url: s.url, date: Date.now() });
+    saveWord(s, popCtx.text, popCtx.tr, popCtx.rm, state.target, l);
     save(); render(); drawPanel();
   }
   if (b.id === 'pGoal') {
@@ -806,6 +822,17 @@ $('#goalBox').addEventListener('click', (e) => {
   const gs = e.target.closest('[data-gs]');
   if (gs) { s.goal.size = Math.min(30, Math.max(3, goalSize(s) + Number(gs.dataset.gs))); save(); renderGoal(); return; }
   if (e.target.closest('[data-act="suggest"]')) return runSuggest();
+  const sv = e.target.closest('[data-sv]');
+  if (sv) {
+    const w = s.goal.words[Number(sv.dataset.sv)]; if (!w || !w.tr) return;
+    const cur = state.library.find((x) => norm(x.text) === norm(w.word));
+    if (cur) state.library = state.library.filter((x) => x !== cur); else saveWord(s, w.word, w.tr, '', w.trLang || state.target);
+    save(); render(); return;
+  }
+  if (e.target.closest('[data-svall]')) {
+    s.goal.words.forEach((w) => { if (w.tr && !state.library.some((x) => norm(x.text) === norm(w.word))) saveWord(s, w.word, w.tr, '', w.trLang || state.target); });
+    save(); render(); return;
+  }
   if (!e.target.closest('#goalGrid')) return;
   const rm = e.target.closest('[data-rm]');
   if (rm) { s.goal.words.splice(Number(rm.dataset.rm), 1); save(); render(); return; }
