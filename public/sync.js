@@ -1,10 +1,21 @@
 // Suivi de la musique : associe chaque vers à un instant, puis lit la position du lecteur (Spotify, YouTube, SoundCloud).
 
 const words = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\(.*?\)/g, ' ').split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+function lev1(a, b) { // vrai si a et b diffèrent d'au plus 1 caractère (insertion, suppression, remplacement)
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 5) return false;
+  let i = 0, j = 0, d = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i] === b[j]) { i++; j++; continue; }
+    if (++d > 1) return false;
+    if (a.length > b.length) i++; else if (a.length < b.length) j++; else { i++; j++; }
+  }
+  return d + (a.length - i) + (b.length - j) <= 1;
+}
 const dice = (a, b) => {
   if (!a.length || !b.length) return 0;
-  const m = new Map(); a.forEach((w) => m.set(w, (m.get(w) || 0) + 1));
-  let hit = 0; b.forEach((w) => { if (m.get(w) > 0) { hit++; m.set(w, m.get(w) - 1); } });
+  const used = new Array(b.length).fill(false); let hit = 0;
+  for (const w of a) { const k = b.findIndex((x, m) => !used[m] && (x === w || lev1(x, w))); if (k >= 0) { used[k] = true; hit++; } }
   return (2 * hit) / (a.length + b.length);
 };
 
@@ -12,9 +23,11 @@ const WORD_RE = /[\p{L}\p{M}\p{N}]+(?:['’][\p{L}\p{M}]+)*/gu;
 const normTok = (w) => String(w || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, '');
 const tokens = (text) => [...String(text || '').matchAll(WORD_RE)].map((m) => normTok(m[0])).filter(Boolean);
 
-// Répartit des instants pour n mots entre start et end, proportionnellement à leur longueur (estimation quand l'instant exact est inconnu)
+// Répartit des instants pour les mots entre start et end quand l'instant exact est inconnu : proportionnellement aux syllabes,
+// avec une note finale plus longue (en chanson, le dernier mot d'un vers est souvent tenu).
+const sylls = (w) => { const m = w.match(/[aeiouy]+/g); return m ? m.length : Math.max(1, Math.round(w.length / 2.5)); };
 function spread(toks, start, end) {
-  const w = toks.map((x) => Math.max(2, x.length) + 1);
+  const w = toks.map((x, k) => sylls(x) + 0.4 + (k === toks.length - 1 ? 0.8 : 0));
   const tot = w.reduce((a, b) => a + b, 0); let acc = 0;
   return w.map((x) => { const t = start + ((end - start) * acc) / tot; acc += x; return t; });
 }
@@ -26,17 +39,22 @@ export function alignLines(lines, lrc) {
   const times = new Array(n).fill(null), ends = new Array(n).fill(null), wt = new Array(n).fill(null), exact = new Array(n).fill(false);
   const src = new Array(n).fill(-1);
   const L = lrc.map((x) => ({ ...x, tk: words(x.text) }));
-  let cursor = 0;
-  lines.forEach((text, i) => {
-    if (text == null) return;
-    const w = words(text); if (!w.length) return;
-    let best = -1, bs = 0;
-    for (let j = cursor; j < Math.min(L.length, cursor + 10); j++) {
-      const s = dice(w, L[j].tk) - (j - cursor) * 0.01; // préfère la suite immédiate
-      if (s > bs) { bs = s; best = j; }
-    }
-    if (best >= 0 && bs >= 0.45) { times[i] = L[best].t; src[i] = best; cursor = best + 1; }
-  });
+  // Appariement global qui respecte l'ordre : maximise la ressemblance totale (évite de confondre les refrains répétés)
+  const gi = []; lines.forEach((text, i) => { if (text != null) { const w = words(text); if (w.length) gi.push({ i, w }); } });
+  const N = gi.length, M = L.length;
+  const sim = Array.from({ length: N }, () => new Float32Array(M));
+  for (let a = 0; a < N; a++) for (let b = 0; b < M; b++) {
+    const d = dice(gi[a].w, L[b].tk);
+    sim[a][b] = d >= 0.45 ? d - 0.002 * Math.abs(b - (a * M) / Math.max(1, N)) : 0; // à ressemblance égale, on préfère la diagonale
+  }
+  const dp = Array.from({ length: N + 1 }, () => new Float32Array(M + 1));
+  for (let a = 1; a <= N; a++) for (let b = 1; b <= M; b++) {
+    dp[a][b] = Math.max(dp[a - 1][b], dp[a][b - 1], sim[a - 1][b - 1] > 0 ? dp[a - 1][b - 1] + sim[a - 1][b - 1] : 0);
+  }
+  for (let a = N, b = M; a > 0 && b > 0;) {
+    if (sim[a - 1][b - 1] > 0 && Math.abs(dp[a][b] - (dp[a - 1][b - 1] + sim[a - 1][b - 1])) < 1e-6) { const i = gi[a - 1].i; times[i] = L[b - 1].t; src[i] = b - 1; a--; b--; }
+    else if (dp[a - 1][b] >= dp[a][b - 1]) a--; else b--;
+  }
   const idx = times.map((t, i) => (t != null ? i : -1)).filter((i) => i >= 0);
   // vers non reconnus : on répartit entre les voisins connus
   for (let k = 0; k < idx.length - 1; k++) {
@@ -64,7 +82,7 @@ export function alignLines(lines, lrc) {
       gt.forEach((g, k) => {
         for (let m = p; m < Math.min(lw.length, p + 4); m++) {
           const l = normTok(lw[m].w);
-          if (l && (l === g || (g.length >= 3 && l.length >= 3 && (l.startsWith(g) || g.startsWith(l))))) { out[k] = lw[m].t; p = m + 1; hit++; break; }
+          if (l && (l === g || lev1(l, g) || (g.length >= 3 && l.length >= 3 && (l.startsWith(g) || g.startsWith(l))))) { out[k] = lw[m].t; p = m + 1; hit++; break; }
         }
       });
       if (hit >= Math.max(1, gt.length * 0.6)) {

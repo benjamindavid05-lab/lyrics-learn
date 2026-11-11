@@ -747,3 +747,30 @@ summary:hover{transform:translateX(3px)}
 
 .btn.solid.saved{background:var(--c3);color:#0a0a0a;border-color:#0a0a0a;box-shadow:0 5px 0 rgba(0,0,0,.35)}
 .btn.solid.saved:hover{background:var(--c1)}
+
+/* ---------- objectif : plus clair ---------- */
+.goalhead{padding-bottom:6px}
+.goalempty{padding:6px 40px 24px}
+.goalempty h3{font:700 22px/1.15 var(--serif);margin:6px 0 16px}
+.gsteps{list-style:none;margin:0;padding:0;display:grid;gap:14px}
+.gsteps li{display:grid;grid-template-columns:30px 1fr;gap:12px;align-items:start;font:600 14px/1.4 var(--sans)}
+.gsteps li>i{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--bg);font:700 13px var(--sans);font-style:normal}
+.gsteps small{display:block;margin-top:6px;color:var(--dim);font-weight:600}
+.gsteps .btn{margin-top:2px}
+.gtip{margin:16px 0 0;padding:10px 14px;border-radius:12px;background:var(--c2);color:#0a0a0a;font:700 13px/1.4 var(--sans)}
+.stepper{display:inline-flex;align-items:center;gap:2px;margin-left:8px;border:2px solid var(--ink);border-radius:99px;overflow:hidden;vertical-align:middle}
+.stepper button{border:0;background:none;color:var(--ink);width:32px;height:30px;font:700 18px/1 var(--sans);cursor:pointer;transition:background .2s}
+.stepper button:hover{background:var(--c3)}
+.stepper button:active{background:var(--c1)}
+.stepper b{min-width:30px;text-align:center;font:700 15px var(--sans)}
+.stepper.sm button{width:28px;height:26px;font-size:16px}
+.goalfoot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px 40px;border-top:1px solid var(--ink)}
+.goalfoot label{font:600 12px var(--sans);letter-spacing:.06em;color:var(--dim);display:flex;align-items:center}
+.goalwin{margin:0;padding:14px 40px;background:var(--c3);color:#0a0a0a;font:700 15px/1.3 var(--sans);animation:pop-in .5s var(--spring)}
+.cell .tick{position:absolute;top:8px;left:8px;width:20px;height:20px;border-radius:50%;border:2px solid currentColor;display:grid;place-items:center;font:700 12px/1 var(--sans);font-style:normal;color:transparent;opacity:.45;transition:all .25s var(--spring)}
+.cell:hover .tick{opacity:.9}
+.cell .cw{margin-top:22px}
+.cell.done{background:var(--c3);color:#0a0a0a}
+.cell.done .ct{color:#0a0a0a;opacity:.7}
+.cell.done .tick{background:#0a0a0a;color:var(--c3);border-color:#0a0a0a;opacity:1;transform:scale(1.15)}
+@media(max-width:960px){.goalempty,.goalfoot,.goalwin{padding-left:18px;padding-right:18px}}

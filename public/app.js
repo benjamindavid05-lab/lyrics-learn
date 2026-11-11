@@ -113,9 +113,7 @@ async function translateSong() {
   await fastDone;
   s.target = myTarget; s.translating = false;
   save(); if (state.current === s.id) render();
-  let autoMode = '';
-  if (!s.goal.words.length && !s.goalAuto && state.current === s.id) { s.goalAuto = true; autoMode = await suggestGoal(); save(); renderGoal(); }
-  try { if (autoMode !== 'llm') await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
+  try { await translateGoal(); save(); if (state.current === s.id) renderGoal(); } catch (e) { setStatus(e.message, true); }
 }
 
 // Précharge la traduction contextuelle de tous les mots : un clic est ensuite instantané.
@@ -223,18 +221,39 @@ function render() {
   if (s.sync && s.sync.times && (syncPlaying || syncPos)) syncFrame();
 }
 
+function migrateGoal(s) {
+  if (s.goalV === 3) return;
+  s.goalV = 3; s.goalAuto = true;
+  s.goal.words = s.goal.words.filter((w) => w.done || w.manual);
+  save();
+}
+const goalSize = (s) => Math.min(30, Math.max(3, Number(s.goal.size) || 8));
+
 function renderGoal() {
-  const s = song(); const ws = s.goal.words;
-  $('#goalSize').value = s.goal.size;
+  const s = song(); migrateGoal(s); const ws = s.goal.words;
+  const n = goalSize(s); s.goal.size = n;
   const done = ws.filter((w) => w.done).length;
-  $('#bar').style.width = ws.length ? `${(done / ws.length) * 100}%` : '0';
-  $('#progText').textContent = ws.length ? `${done} / ${ws.length}` : '';
-  const pad = (3 - ((ws.length + 1) % 3)) % 3;
-  $('#goalGrid').innerHTML = ws.map((w, i) => `<div class="cell${w.done ? ' done' : ''}" data-i="${i}" role="button" tabindex="0" title="${esc(w.note || '')}">
-      <button class="rm" data-rm="${i}" aria-label="${t('common.remove')}">✕</button>
-      <b class="cw"><bdi>${esc(w.word)}</bdi></b><span class="ct">${esc(w.tr || '…')}</span></div>`).join('')
-    + `<button class="cell cta" data-act="suggest" aria-label="${t('goal.suggestAria')}"><span>+</span><small>${ws.length ? t('goal.more') : t('goal.suggest')}</small></button>`
-    + '<div class="cell empty"></div>'.repeat(pad);
+  const has = ws.length > 0, win = has && done === ws.length;
+  $('#goalEmpty').hidden = has; $('#goalHelp').hidden = !has; $('#goalGrid').hidden = !has; $('.goalbox .progress').hidden = !has;
+  $('#goalFoot').hidden = !has; $('#goalWin').hidden = !win; $('.goalbox .quizrow').hidden = !has;
+  $('#bar').style.width = has ? `${(done / ws.length) * 100}%` : '0';
+  $('#progText').textContent = has ? t('goal.learned', { done, n: ws.length }) : '';
+  const stepper = (cls = '') => `<span class="stepper ${cls}" role="group" aria-label="${esc(t('goal.count'))}"><button type="button" data-gs="-1" aria-label="−1">−</button><b>${n}</b><button type="button" data-gs="1" aria-label="+1">+</button></span>`;
+  if (!has) {
+    $('#goalEmpty').innerHTML = `<h3>${esc(t('goal.empty.t'))}</h3>
+      <ol class="gsteps">
+        <li><i>1</i><div><span>${esc(t('goal.s1'))}</span> ${stepper()}</div></li>
+        <li><i>2</i><div><button class="btn solid" type="button" data-act="suggest">✨ ${esc(t('goal.suggestN', { n }))}</button><small>${esc(t('goal.s2b'))}</small></div></li>
+        <li><i>3</i><div><span>${esc(t('goal.s3'))}</span></div></li>
+      </ol>
+      <p class="gtip">✓ ${esc(t('goal.then'))}</p>`;
+  } else {
+    $('#goalGrid').innerHTML = ws.map((w, i) => `<div class="cell${w.done ? ' done' : ''}" data-i="${i}" role="checkbox" aria-checked="${!!w.done}" tabindex="0" title="${esc(w.note || t('goal.tick'))}">
+      <i class="tick" aria-hidden="true">✓</i><button class="rm" data-rm="${i}" aria-label="${t('common.remove')}">✕</button>
+      <b class="cw"><bdi>${esc(w.word)}</bdi></b><span class="ct">${esc(w.tr || '…')}</span></div>`).join('');
+    $('#goalWin').innerHTML = `<b>🎉 ${esc(t('goal.win', { n: ws.length }))}</b>`;
+    $('#goalFoot').innerHTML = `<label>${esc(t('goal.size'))} ${stepper('sm')}</label><button class="btn" type="button" data-act="suggest">✨ ${esc(t('goal.moreN'))}</button>`;
+  }
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
 }
 
@@ -330,7 +349,7 @@ function runTour() {
   const steps = [
     { sel: '#lyrics .w', title: 'tour.1.t', desc: 'tour.1.d' },
     { sel: '#wordPanel', title: 'tour.2.t', desc: 'tour.2.d', skipNarrow: true, before: () => { const w = document.querySelector('#lyrics .w'); if (w && !popCtx) openPop(w.textContent, Number(w.dataset.l)); } },
-    { sel: '#goalGrid', title: 'tour.3.t', desc: 'tour.3.d' },
+    { sel: '#goalBox', title: 'tour.3.t', desc: 'tour.3.d' },
     { sel: '#ptabs', title: 'tour.4.t', desc: 'tour.4.d' },
     { sel: '.lang', title: 'tour.5.t', desc: 'tour.5.d' }
   ].filter((s) => document.querySelector(s.sel));
@@ -447,7 +466,11 @@ function onTick(pos, playing, dur) {
   if (!playerSeen || prev !== playerPreview) { playerSeen = true; playerPreview = prev; if (s0) renderSyncBar(s0); }
   feed(pos, playing, dur);
 }
+let syncCorr = 0, syncCorrAt = 0;
 function feed(pos, playing, dur) {
+  // lissage : un petit écart entre l'horloge interne et la position annoncée est résorbé en 0,4 s au lieu de provoquer un saut
+  const pred = currentPos(), diff = syncPlaying && playing ? pred - pos : 0;
+  syncCorr = Math.abs(diff) < 0.5 ? diff : 0; syncCorrAt = performance.now();
   syncPos = pos; syncAt = performance.now(); syncPlaying = playing;
   const s = song();
   // la version du minutage doit avoir la même durée que le morceau joué : sinon on en cherche une autre
@@ -458,7 +481,7 @@ function feed(pos, playing, dur) {
   if (playing && !syncRaf) syncRaf = requestAnimationFrame(syncFrame);
   else if (!playing) syncFrame(); // pause ou déplacement du curseur : on met à jour une fois
 }
-const currentPos = () => syncPos + (syncPlaying ? (performance.now() - syncAt) / 1000 : 0);
+const currentPos = () => syncPos + (syncPlaying ? (performance.now() - syncAt) / 1000 : 0) + syncCorr * Math.max(0, 1 - (performance.now() - syncCorrAt) / 400);
 function syncFrame() {
   syncRaf = 0;
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
@@ -702,7 +725,7 @@ pop.addEventListener('click', (e) => {
   if (b.id === 'pGoal') {
     const i = s.goal.words.findIndex((g) => norm(g.word) === norm(popCtx.text));
     if (i >= 0) s.goal.words.splice(i, 1);
-    else s.goal.words.push({ word: popCtx.text, tr: popCtx.tr, trLang: state.target, note: popCtx.note, done: false });
+    else s.goal.words.push({ word: popCtx.text, tr: popCtx.tr, trLang: state.target, note: popCtx.note, done: false, manual: true });
     save(); render(); drawPanel();
   }
 });
@@ -738,7 +761,7 @@ function suggestWords() {
   const ranked = [...counts].filter(([n]) => !known.has(n) && !kept.has(n))
     // mots présents plusieurs fois (refrain) mais pas omniprésents, plus longs = plus riches
     .map(([n, c]) => [n, Math.min(c, 2) + [...n].length * 0.5 + Math.random() * 0.6]).sort((a, b) => b[1] - a[1]);
-  const size = Number($('#goalSize').value);
+  const size = goalSize(s);
   const keep = s.goal.words.filter((w) => w.done);
   const fresh = ranked.slice(0, Math.max(0, size - keep.length)).map(([n]) => ({ word: forms.get(n), tr: '', done: false }));
   s.goal = { size, words: [...keep, ...fresh] };
@@ -746,7 +769,7 @@ function suggestWords() {
 
 // Choix des mots utiles (pas de mots-outils) ; sinon repli sur une heuristique.
 async function suggestGoal() {
-  const s = song(); const size = Number($('#goalSize').value) || s.goal.size || 8;
+  const s = song(); const size = goalSize(s);
   const keep = s.goal.words.filter((w) => w.done);
   if (geminiOn && size > keep.length) {
     try {
@@ -777,18 +800,20 @@ async function runSuggest() {
   const mode = await suggestGoal(); save(); render();
   if (mode !== 'llm') { try { await translateGoal(); save(); renderGoal(); } catch (e) { setStatus(e.message, true); } }
 }
-$('#goalSize').onchange = () => { song().goal.size = Number($('#goalSize').value); save(); };
 $('#quiz').onchange = renderGoal;
-$('#goalGrid').addEventListener('click', (e) => {
+$('#goalBox').addEventListener('click', (e) => {
   const s = song(); if (!s) return;
+  const gs = e.target.closest('[data-gs]');
+  if (gs) { s.goal.size = Math.min(30, Math.max(3, goalSize(s) + Number(gs.dataset.gs))); save(); renderGoal(); return; }
   if (e.target.closest('[data-act="suggest"]')) return runSuggest();
+  if (!e.target.closest('#goalGrid')) return;
   const rm = e.target.closest('[data-rm]');
   if (rm) { s.goal.words.splice(Number(rm.dataset.rm), 1); save(); render(); return; }
   const cell = e.target.closest('.cell[data-i]'); if (!cell) return;
   if ($('#quiz').checked && e.target.classList.contains('ct') && !e.target.classList.contains('show')) { e.target.classList.add('show'); return; }
   const w = s.goal.words[Number(cell.dataset.i)]; w.done = !w.done; save(); render();
 });
-$('#goalGrid').addEventListener('keydown', (e) => {
+$('#goalBox').addEventListener('keydown', (e) => {
   if ((e.key === 'Enter' || e.key === ' ') && e.target.matches('.cell[data-i]')) { e.preventDefault(); e.target.click(); }
 });
 

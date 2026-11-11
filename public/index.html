@@ -137,17 +137,17 @@
     <aside class="rail" id="goalSide" hidden>
       <section class="panel" id="wordPanel" aria-live="polite"></section>
 
-      <section class="goalbox">
+      <section class="goalbox" id="goalBox">
         <div class="goalhead">
-          <div class="label" data-i18n="goal.title">Goal</div>
-          <div class="goalctl">
-            <span id="progText" class="prog"></span>
-            <select id="goalSize" data-i18n-aria="goal.count" aria-label="Number of words"><option>5</option><option selected>8</option><option>10</option><option>15</option><option>20</option></select>
-          </div>
+          <div class="label" data-i18n="goal.title">Your goal</div>
+          <span id="progText" class="prog"></span>
         </div>
-        <p class="goalhelp" data-i18n="goal.help">Words to learn from this song. Click a cell when you know the word.</p>
+        <div id="goalEmpty" class="goalempty" hidden></div>
+        <p class="goalhelp" id="goalHelp" data-i18n="goal.help2"></p>
         <div class="progress"><div id="bar"></div></div>
         <div id="goalGrid" class="grid"></div>
+        <div id="goalWin" class="goalwin" role="status" hidden></div>
+        <div id="goalFoot" class="goalfoot"></div>
         <label class="toggle quizrow"><input type="checkbox" id="quiz"> <span data-i18n="goal.quiz">Review mode: hide translations</span></label>
       </section>
     </aside>
