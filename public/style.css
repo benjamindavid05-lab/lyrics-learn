@@ -1232,3 +1232,13 @@ body{padding-bottom:0}
 .readbar .toggle{margin-left:2px}
 @media(max-width:640px){.readbar .btn.sm{flex:1}.rb-space{display:none}}
 .bc-how,.card .mini,.card .minibar{display:none!important}
+
+/* logotype « Lyrio » : le point du i devient une note, un coup de surligneur sous les lettres */
+.top .brand>.wm{position:relative;display:inline-block;font:800 32px/1 var(--serif);letter-spacing:-.035em;text-transform:none;padding:0 2px 1px;background:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 120 14' preserveAspectRatio='none'><path d='M2 8C26 2 54 11 80 5S108 6 118 4L117 11C92 14 62 8 34 12S10 11 3 12z' fill='%23ffe36b'/></svg>") 0 88%/100% 36% no-repeat}
+.wm-i{position:relative;display:inline-block}
+.wm-i i{position:absolute;left:50%;top:-.34em;transform:translateX(-46%) rotate(-12deg);font:800 .62em/1 var(--serif);font-style:normal;color:var(--c1);transform-origin:30% 90%}
+.brand:hover .wm-i i{animation:hop .6s var(--spring)}
+.beta{margin-left:2px}
+@media(prefers-reduced-motion:reduce){.brand:hover .wm-i i{animation:none}}
+.wm-i i{font-size:.78em;top:-.42em;transform:translateX(-30%) rotate(-10deg)}
+.beta{margin-left:-4px;margin-top:-6px}
