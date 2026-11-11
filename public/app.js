@@ -1,7 +1,7 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
-import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
+import { alignLines, buildFromTimes, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
 import { howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
 const $ = (s) => document.querySelector(s);
@@ -492,9 +492,67 @@ function youtubeFailed() {
   if (alt) { setPlayer(s, alt, true); save(); renderPlayer(); }
   else { s.ytDead = true; save(); renderSyncBar(s); }
 }
+// ---- relevé du minutage à la main : on appuie à chaque début de vers pendant l'écoute ----
+let tap = null;
+const lineTexts = (s) => s.lines.map((l) => (lineKind(l.text) === 'line' ? l.text : null));
+function tapStart(s) {
+  if (!playerSeen && !(manualOn && manualSong === s.id)) { manualOn = true; manualSong = s.id; feed(0, true, 0); } // pas de lecteur connecté : horloge interne
+  tap = { id: s.id, list: lineTexts(s).map((x, i) => (x != null ? i : -1)).filter((i) => i >= 0), k: 0, times: new Array(s.lines.length).fill(null), hist: [] };
+  renderTap(s); renderSyncBar(s);
+}
+function renderTap(s) {
+  const bar = $('#tapBar'); document.querySelectorAll('#lyrics .ln.tapnext').forEach((e) => e.classList.remove('tapnext'));
+  if (!tap || !s || tap.id !== s.id) { bar.hidden = true; return; }
+  const i = tap.list[tap.k];
+  bar.hidden = false;
+  bar.innerHTML = `<b>⏱ ${esc(t('sync.tapN', { k: tap.k + 1, n: tap.list.length }))}</b> <span>${esc(t('sync.tapHelp'))}</span>
+    <button type="button" class="btn solid" data-tapact="next">${esc(t('sync.tapNext'))}</button>
+    <button type="button" class="link" data-tapact="undo">${esc(t('sync.tapUndo'))}</button> <button type="button" class="link" data-tapact="cancel">${esc(t('sync.tapCancel'))}</button>`;
+  const el = document.querySelector(`#lyrics .ln[data-i="${i}"]`);
+  if (el) { el.classList.add('tapnext'); el.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
+}
+function tapNext(s) {
+  if (!tap || tap.id !== s.id) return;
+  const i = tap.list[tap.k];
+  tap.times[i] = Math.max(0, currentPos() - 0.25); // on appuie toujours un peu après le début : on compense
+  tap.hist.push(i); tap.k++;
+  if (tap.k >= tap.list.length) return tapFinish(s);
+  renderTap(s);
+}
+function tapUndo(s) { if (!tap || !tap.hist.length) return; const i = tap.hist.pop(); tap.times[i] = null; tap.k--; renderTap(s); }
+function applyTimes(s, times, extra) {
+  const b = buildFromTimes(lineTexts(s), times);
+  s.sync = { v: 2, versions: [], ...b, total: b.matched, dur: 0, durChecked: true, custom: true, ...extra };
+  setOff(s, 0); save();
+}
+function tapFinish(s) {
+  const times = tap.times; tap = null; $('#tapBar').hidden = true;
+  document.querySelectorAll('#lyrics .ln.tapnext').forEach((e) => e.classList.remove('tapnext'));
+  applyTimes(s, times, {}); renderSyncBar(s);
+}
+function autoEstimate(s) {
+  const texts = lineTexts(s), idx = texts.map((x, i) => (x != null ? i : -1)).filter((i) => i >= 0);
+  const D = (s.sync && s.sync.playerDur > 30 ? s.sync.playerDur : 0) || syncKnownDur || 200;
+  const start = Math.min(12, D * 0.06), end = D - Math.min(10, D * 0.05);
+  const w = idx.map((i) => texts[i].replace(/\s+/g, '').length + 10), tot = w.reduce((a, b) => a + b, 0);
+  const times = new Array(s.lines.length).fill(null); let acc = 0;
+  idx.forEach((i, k) => { times[i] = start + ((end - start) * acc) / tot; acc += w[k]; });
+  applyTimes(s, times, { estimated: true }); renderSyncBar(s);
+}
+let syncKnownDur = 0;
+document.addEventListener('keydown', (e) => {
+  if (!tap || e.code !== 'Space' || /^(INPUT|TEXTAREA|SELECT|BUTTON)$/.test(document.activeElement && document.activeElement.tagName)) return;
+  e.preventDefault(); const s = song(); if (s) tapNext(s);
+});
+$('#tapBar').addEventListener('click', (e) => {
+  const a = e.target.closest('[data-tapact]'); const s = song(); if (!a || !s) return;
+  if (a.dataset.tapact === 'next') tapNext(s); else if (a.dataset.tapact === 'undo') tapUndo(s);
+  else { tap = null; renderTap(s); renderSyncBar(s); }
+});
 let manualOn = false, manualSong = '', playerSeen = false, playerPreview = false;
 // positions envoyées par le lecteur (Spotify, YouTube, SoundCloud)
 function onTick(pos, playing, dur) {
+  if (dur > 30) syncKnownDur = dur;
   if (window.__syncDebug) console.log('[sync] position', pos.toFixed(1), playing ? 'play' : 'pause', 'durée', dur);
   const s0 = song();
   if (manualOn && s0 && manualSong === s0.id) return; // mode manuel : l'horloge interne prend le relais
@@ -568,7 +626,7 @@ function renderSyncBar(s, p) {
   const ready = s.sync && s.sync.v === 2 && s.sync.times;
   if (s.ytDead && p.provider === 'YouTube') html = `<span>${esc(t('sync.ytDead'))}</span>`;
   else if (!s.sync || (!s.sync.none && s.sync.v !== 2)) html = `<span>${esc(t('sync.loading'))}</span>`;
-  else if (s.sync.none) html = `<span>${esc(t('sync.none'))}</span>`;
+  else if (s.sync.none) html = `<span>${esc(t('sync.none2'))}</span><span class="syncman"><button type="button" class="btn sm solid" data-tap="start">⏱ ${esc(t('sync.tap'))}</button> <button type="button" class="btn sm" data-tap="auto" title="${esc(t('sync.autoTip'))}">≈ ${esc(t('sync.auto2'))}</button></span>`;
   else if (ready) {
     const exactShare = s.sync.exactLines / Math.max(1, s.sync.total);
     const mode = exactShare >= 0.6 ? t('sync.exact') : t('sync.approx');
@@ -582,7 +640,8 @@ function renderSyncBar(s, p) {
     const pd = s.sync.playerDur, mm = pd && s.sync.dur ? Math.abs(pd - s.sync.dur) : null;
     const fit = mm == null ? '' : mm <= 2.5 ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.match'))}</span>`
       : `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.mismatch', { a: Math.round(pd), b: Math.round(s.sync.dur) }))}${(s.ytAlts || []).some((u) => !(s.ytBad || []).includes(u)) ? ` <button type="button" class="btn sm solid" data-nextvid="1">${esc(t('sync.nextVideo'))}</button>` : ''}</span>`;
-    html = `<span class="syncon"><b>♪</b> ${esc(mode)}</span>${fit}${link}<span class="syncman">${manual}</span>
+    const custom = s.sync.custom ? `<button type="button" class="link" data-tap="start">↺ ${esc(t('sync.redo'))}</button>` : '';
+    html = `<span class="syncon"><b>♪</b> ${esc(s.sync.custom ? (s.sync.estimated ? t('sync.estimated') : t('sync.custom')) : mode)}</span>${custom}${fit}${link}<span class="syncman">${manual}</span>
     <span class="syncoff"><button type="button" class="link" data-align="1" title="${esc(t('sync.alignTip'))}">${esc(t('sync.align'))}</button>
       <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${getOff(s) > 0 ? '+' : ''}${getOff(s).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
   }
@@ -591,7 +650,10 @@ function renderSyncBar(s, p) {
   $('#follow').checked = follow;
 }
 $('#syncBar').addEventListener('click', (e) => {
-  const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
+  const s = song(); if (!s || !s.sync) return;
+  const tp0 = e.target.closest('[data-tap]');
+  if (tp0) { if (tp0.dataset.tap === 'start') tapStart(s); else autoEstimate(s); return; }
+  if (!s.sync.times || s.sync.v !== 2) return;
   if (e.target.closest('[data-nextvid]')) {
     const bad = (s.ytBad = s.ytBad || []); if (s.players.youtube) bad.push(s.players.youtube.url);
     const vs = (s.sync.versions || []).map((v) => v.d);

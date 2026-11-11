@@ -101,6 +101,20 @@ export function alignLines(lines, lrc) {
   return { times, ends, words: wt, exact, matched: idx.length, exactLines: exact.filter(Boolean).length };
 }
 
+// Construit un minutage complet à partir des seuls débuts de vers (relevés à la main ou estimés)
+export function buildFromTimes(lines, times) {
+  const n = lines.length, ends = new Array(n).fill(null), wt = new Array(n).fill(null);
+  const order = times.map((t, i) => (t != null ? i : -1)).filter((i) => i >= 0);
+  order.forEach((i, k) => {
+    const nextT = k + 1 < order.length ? times[order[k + 1]] : Infinity;
+    const chars = String(lines[i]).replace(/\s+/g, '').length;
+    ends[i] = Math.min(nextT - 0.05, times[i] + Math.max(1.2, chars * 0.085 + 0.6));
+    if (ends[i] <= times[i]) ends[i] = times[i] + 0.8;
+    const gt = tokens(lines[i]); if (gt.length) wt[i] = spread(gt, times[i], ends[i]);
+  });
+  return { times, ends, words: wt, exact: new Array(n).fill(false), matched: order.length, exactLines: 0 };
+}
+
 // instant -> { i : vers en cours, k : mot en cours, p : avancement du mot 0..1, line : avancement du vers }
 export function locate(sync, pos) {
   const { times, ends, words: wt } = sync;
