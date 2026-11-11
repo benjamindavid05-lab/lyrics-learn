@@ -691,11 +691,8 @@ function studyRender() {
   $('#stBar').style.width = `${Math.min(100, (study.k / n) * 100)}%`;
   $('#stCount').textContent = end ? '🎉' : t('study.count', { k: study.k + 1, n });
   $('#stPrev').disabled = study.k === 0; $('#stNext').textContent = end ? t('study.close') : t('study.next') + ' ▶';
-  $('#stAuto').textContent = study.auto ? '⏸ ' + t('study.pause') : '▶ ' + t('study.auto');
-  $('#stAuto').classList.toggle('on', study.auto);
-  document.querySelectorAll('#stSpeed button').forEach((b) => b.classList.toggle('on', Number(b.dataset.sp) === study.speed));
   $('#stXp').textContent = '⭐ ' + t(study.looked.size === 1 ? 'study.word1' : 'study.words', { n: study.looked.size });
-  const canFollow = !!(s.sync && s.sync.times && s.sync.v === 2 && syncPlaying);
+  const canFollow = !!(syncReliable(s) && syncPlaying);
   $('#stFollow').innerHTML = study.follow ? `<b class="dot ok"></b> ${esc(t('study.following'))}` : canFollow ? `<button type="button" class="link" id="stResume">♪ ${esc(t('study.resume'))}</button>` : '';
   $('#stHint').textContent = t('study.hint'); studyMusicRender();
   if (end) {
@@ -712,11 +709,9 @@ function studyRender() {
   $('#stReveal').textContent = study.shown ? '🙈 ' + t('study.hide') : '👁 ' + t('study.show');
   $('#stMeaning').innerHTML = study.chips.map((c, m) => `<span class="chip"><b>${esc(c.text)}</b> ${c.tr ? esc(c.tr) : '…'} ${c.tr ? `<button type="button" data-stsave="${m}" aria-label="${esc(t('goal.save'))}">${state.library.some((e) => norm(e.text) === norm(c.text)) ? '★' : '☆'}</button>` : ''}</span>`).join('');
   clearTimeout(study.timer);
-  if (study.auto) {
-    const chars = l.text.replace(/\s+/g, '').length, delay = Math.min(9, Math.max(2.6, 1.8 + chars * 0.08)) / study.speed;
-    study.timer = setTimeout(() => { study.shown = true; $('#stTr').classList.add('show'); $('#stReveal').textContent = '🙈 ' + t('study.hide'); study.timer = setTimeout(() => studyStep(1, true), (delay * 1000) / 2); }, (delay * 1000) / 2);
-  }
 }
+// suivi de la musique proposé seulement si presque toutes les lignes correspondent (sinon il afficherait une mauvaise ligne)
+function syncReliable(s) { if (!(s && s.sync && s.sync.times && s.sync.v === 2)) return false; const n = s.lines.filter((l) => lineKind(l.text) === 'line').length; return s.sync.total >= Math.max(3, n * 0.8); }
 function studyStep(d, keepAuto) {
   const n = study.list.length; if (!keepAuto) { study.auto = false; study.follow = false; }
   study.k = Math.max(0, Math.min(n, study.k + d)); study.shown = false; study.chips = [];
@@ -729,7 +724,7 @@ function studyGoLine(i) {
 }
 async function studyWord(span) {
   const s = song(); const text = span.textContent, i = Number(span.dataset.l);
-  study.auto = false; clearTimeout(study.timer); $('#stAuto').textContent = '▶ ' + t('study.auto'); $('#stAuto').classList.remove('on');
+  study.auto = false; clearTimeout(study.timer);
   let chip = study.chips.find((c) => norm(c.text) === norm(text));
   if (!chip) { chip = { text, tr: '', rm: '', line: i }; study.chips.push(chip); }
   span.classList.add('picked'); studyRenderChips();
@@ -761,7 +756,7 @@ function studyMusicAction(a) {
   try {
     if (a === 'toggle') {
       if (syncPlaying) { playerCtl.pause(); study.follow = false; study.listenUntil = null; }
-      else { playerCtl.play(); study.follow = !!(s.sync && s.sync.times && s.sync.v === 2); studyRender(); }
+      else { playerCtl.play(); study.follow = syncReliable(s); studyRender(); }
     } else if (a === 'listen') {
       const i = study.list[study.k], off = effOff(s);
       study.follow = false; study.auto = false; clearTimeout(study.timer);
@@ -779,8 +774,6 @@ $('#studyDlg').addEventListener('close', () => { clearTimeout(study.timer); stud
 $('#stNext').onclick = () => (study.k >= study.list.length ? studyClose() : studyStep(1));
 $('#stPrev').onclick = () => studyStep(-1);
 $('#stReveal').onclick = () => { study.shown = !study.shown; $('#stTr').classList.toggle('show', study.shown); $('#stReveal').textContent = study.shown ? '🙈 ' + t('study.hide') : '👁 ' + t('study.show'); };
-$('#stAuto').onclick = () => { study.auto = !study.auto; study.follow = false; if (study.k >= study.list.length) study.k = 0; studyRender(); };
-$('#stSpeed').onclick = (e) => { const b = e.target.closest('[data-sp]'); if (!b) return; study.speed = Number(b.dataset.sp); studyRender(); };
 $('#stLine').addEventListener('click', (e) => { const w = e.target.closest('.sw'); if (w) studyWord(w); });
 $('#stMeaning').addEventListener('click', (e) => {
   const b = e.target.closest('[data-stsave]'); const s = song(); if (!b || !s) return;
