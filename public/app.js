@@ -568,6 +568,7 @@ const getOff = (s) => { const o = (s.syncOffs || {})[offKey(s)]; return o != nul
 const setOff = (s, v) => { s.syncOffs = s.syncOffs || {}; s.syncOffs[offKey(s)] = Math.round(v * 10) / 10; };
 let syncCorr = 0, syncCorrAt = 0;
 function feed(pos, playing, dur) {
+  if (playing && wordPaused && Date.now() - wordPausedAt > 1500) { wordPaused = false; clearPicked(); if (popCtx) drawPanel(); }
   setTimeout(nowRender, 0);
   if (study.open) {
     if (study.listenUntil != null && playing && pos >= study.listenUntil) { study.listenUntil = null; try { playerCtl && playerCtl.pause(); } catch {} }
@@ -1061,7 +1062,17 @@ function setActiveLine(i) {
   activeLine = i;
   document.querySelectorAll('#lyrics .ln').forEach((el) => el.classList.toggle('active', Number(el.dataset.i) === i));
 }
-function closePop() { popCtx = null; setActiveLine(null); drawPanel(); }
+// Cliquer un mot met la musique en pause (si le lecteur se pilote) et surligne le mot ; un bouton la relance depuis le même endroit.
+let wordPaused = false, wordPausedAt = 0;
+function pauseForWord() { if (playerCtl && syncPlaying) { try { playerCtl.pause(); wordPaused = true; wordPausedAt = Date.now(); } catch { /* lecteur non prêt */ } } }
+function clearPicked() { document.querySelectorAll('#lyrics .w.picked').forEach((w) => w.classList.remove('picked')); }
+function markPicked(text, lineIdx) {
+  clearPicked();
+  const n = norm(text); const words = n.split(/\s+/).filter(Boolean);
+  document.querySelectorAll(`#lyrics .ln[data-i="${lineIdx}"] .w`).forEach((w) => { if (words.includes(w.dataset.n)) w.classList.add('picked'); });
+}
+function resumeAfterWord() { const was = wordPaused; wordPaused = false; clearPicked(); if (was && playerCtl) { try { playerCtl.play(); } catch { /* rien */ } } drawPanel(); }
+function closePop() { popCtx = null; wordPaused = false; clearPicked(); setActiveLine(null); drawPanel(); }
 
 function drawPanel() {
   const s = song();
@@ -1080,13 +1091,15 @@ function drawPanel() {
     <p class="ctx" dir="auto">“${esc(line.text)}”</p>
     ${line.tr ? `<p class="ctxtr">${esc(line.tr)}</p>` : ''}
     <div class="acts"><button class="btn solid${inLib && !stale ? ' saved' : ''}" id="pSave" ${!inLib && !popCtx.tr ? 'disabled' : ''} title="${inLib && !stale ? esc(t('panel.unsaveHint')) : ''}">${stale ? esc(t('panel.update')) : inLib ? t('panel.saved') : t('panel.save')}</button>
-      ${single ? `<button class="btn" id="pGoal">${inGoal ? t('panel.goalRemove') : t('panel.goalAdd')}</button>` : ''}</div>`;
+      ${single ? `<button class="btn" id="pGoal">${inGoal ? t('panel.goalRemove') : t('panel.goalAdd')}</button>` : ''}</div>
+    ${wordPaused && playerCtl ? `<button class="btn resume" id="pResume" type="button">▶ ${esc(t('panel.resume'))}</button>` : ''}`;
 }
 
 async function openPop(text, lineIdx) {
   const s = song();
+  pauseForWord();
   popCtx = { text, lineIdx, tr: '', rm: '', note: '' };
-  setActiveLine(lineIdx);
+  setActiveLine(lineIdx); markPicked(text, lineIdx);
   drawPanel();
   const key = `${state.target}|${text}|${lineIdx}`;
   const apply = (r) => {
@@ -1120,6 +1133,7 @@ async function openPop(text, lineIdx) {
 pop.addEventListener('click', (e) => {
   const s = song(); const b = e.target.closest('button'); if (!b) return;
   if (b.id === 'pClose') return closePop();
+  if (b.id === 'pResume') return resumeAfterWord();
   if (!popCtx || !s) return;
   if (b.id === 'pRetry') { wordCache.delete(`${state.target}|${popCtx.text}|${popCtx.lineIdx}`); return openPop(popCtx.text, popCtx.lineIdx); }
   if (b.id === 'pSave') {
