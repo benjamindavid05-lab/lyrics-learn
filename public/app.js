@@ -562,6 +562,11 @@ function onTick(pos, playing, dur) {
   }
   feed(pos, playing, dur);
 }
+// Avance globale (par appareil) : les horaires des paroles marquent le DÉBUT du vers et les lecteurs annoncent leur position avec un léger retard ;
+// surligner un peu en avance donne l'impression d'être pile en rythme. Réglable une fois pour toutes dans le mode karaoké.
+let lead = 0.3; try { const v = localStorage.getItem('ll_lead'); if (v != null && v !== '' && !Number.isNaN(Number(v))) lead = Number(v); } catch { /* valeur par défaut */ }
+const setLead = (v) => { lead = Math.round(Math.max(-1, Math.min(1.5, v)) * 20) / 20; try { localStorage.setItem('ll_lead', String(lead)); } catch { /* rien */ } };
+const effOff = (s) => getOff(s) + lead;
 const offKey = (s) => { const p = s.players && s.players[s.playerPref]; return p ? p.src : ''; };
 const getOff = (s) => { const o = (s.syncOffs || {})[offKey(s)]; return o != null ? o : 0; };
 const setOff = (s, v) => { s.syncOffs = s.syncOffs || {}; s.syncOffs[offKey(s)] = Math.round(v * 10) / 10; };
@@ -592,7 +597,7 @@ const currentPos = () => syncPos + (syncPlaying ? (performance.now() - syncAt) /
 function syncFrame() {
   syncRaf = 0;
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
-  let loc; try { loc = locate(s.sync, currentPos() + getOff(s)); } catch { return; }
+  let loc; try { loc = locate(s.sync, currentPos() + effOff(s)); } catch { return; }
   if (kara.open) karaUpdate(s, loc);
   if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
     clearPlaying(); syncIdx = loc.i;
@@ -756,10 +761,11 @@ function studyMusicAction(a) {
       if (syncPlaying) { playerCtl.pause(); study.follow = false; study.listenUntil = null; }
       else { playerCtl.play(); study.follow = !!(s.sync && s.sync.times && s.sync.v === 2); studyRender(); }
     } else if (a === 'listen') {
-      const i = study.list[study.k], off = getOff(s);
+      const i = study.list[study.k], off = effOff(s);
       study.follow = false; study.auto = false; clearTimeout(study.timer);
-      study.listenUntil = s.sync.ends[i] - off + 0.25;
-      playerCtl.seek(s.sync.times[i] - off - 0.2); playerCtl.play();
+      // marge avant/après le vers : une petite erreur de minutage ne coupe jamais un mot
+      study.listenUntil = s.sync.ends[i] - off + 0.45;
+      playerCtl.seek(s.sync.times[i] - off - 0.45); playerCtl.play();
     }
   } catch { /* lecteur indisponible */ }
   studyMusicRender();
@@ -997,7 +1003,8 @@ function karaOpen() {
   }).join('');
   $('#kaLines').querySelectorAll('.kl').forEach((e) => kara.els.set(Number(e.dataset.i), e));
   $('#kaWord').hidden = true;
-  $('#karaDlg').showModal(); karaCtl();
+  $('#karaDlg').showModal(); karaCtl(); karaLead();
+  try { if (!localStorage.getItem('ll_leadhint')) { localStorage.setItem('ll_leadhint', '1'); toast(t('kara.hint')); } } catch { /* rien */ }
   if (hasSync) syncFrame();
 }
 function karaUpdate(s, loc) {
@@ -1048,7 +1055,11 @@ $('#kaWord').addEventListener('click', (e) => {
     save(); e.target.closest('[data-ks]').textContent = (state.library.some((x) => norm(x.text) === norm(text)) ? '★ ' : '☆ ') + t('goal.save');
   }
 });
-document.querySelector('.ka-off').addEventListener('click', (e) => { const b = e.target.closest('[data-ko]'); const s = song(); if (!b || !s) return; setOff(s, getOff(s) + Number(b.dataset.ko)); save(); if (!syncPlaying) syncFrame(); });
+function karaLead() { const el = $('#kaLead'); if (el) el.textContent = `${lead > 0 ? '+' : ''}${lead.toFixed(2).replace(/0$/, '')} s`; }
+document.querySelector('.ka-off').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-ko]'); if (!b) return;
+  setLead(lead + Number(b.dataset.ko)); karaLead(); if (!syncPlaying) syncFrame();
+});
 document.addEventListener('keydown', (e) => { if (kara.open && e.code === 'Space' && !/^(INPUT|BUTTON)$/.test(document.activeElement.tagName)) { e.preventDefault(); $('#kaPlay').click(); } });
 
 let frameKey = '', formKey = '', playerEditing = false;

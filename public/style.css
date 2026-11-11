@@ -1280,3 +1280,5 @@ body{padding-bottom:0}
   .pg-modes button{padding:10px 8px}.pg-modes span{font-size:24px}
 }
 .hero-bird{left:8px}
+
+.ka-off{align-items:center}.ka-off b{font:800 14px var(--sans);min-width:56px;text-align:center;color:#ffe36b}

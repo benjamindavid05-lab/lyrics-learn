@@ -157,7 +157,7 @@ export async function attachPlayer(provider, iframe, onTick, onFail) {
       clearInterval(timer);
       const playing = e.data === 1;
       const push = () => { try { onTick(player.getCurrentTime(), playing, player.getDuration()); } catch {} };
-      push(); if (playing) timer = setInterval(push, 250);
+      push(); if (playing) timer = setInterval(push, 100);
     } } });
     stop = () => { clearInterval(timer); try { player.destroy(); } catch {} };
     ctl = { play: () => player.playVideo(), pause: () => player.pauseVideo(), seek: (sec) => player.seekTo(Math.max(0, sec), true) };
