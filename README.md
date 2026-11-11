@@ -1,4 +1,4 @@
-# Lyrics Learn
+# Lyrio 🐦
 
 Apprendre une langue avec des paroles Genius : traduction ligne par ligne, objectif de mots par chanson, bibliothèque de mots avec la phrase source au survol.
 
@@ -10,6 +10,10 @@ npm test      # test de l'extracteur Genius
 Sans dépendance (Node ≥ 18). Les données (chansons, objectifs, bibliothèque) sont stockées dans le navigateur (`localStorage`).
 Si Genius refuse la requête (anti-bot), utiliser « Ou coller les paroles ».
 La traduction passe par l'endpoint public de Google Translate (sans clé).
+
+## Votre oiseau
+
+Lyrio a une mascotte : un oiseau qui grandit avec votre progression (œuf → poussin → moineau → perroquet → aigle). Il gagne des XP quand vous ajoutez une chanson (+10), enregistrez un mot (+3), apprenez un mot d'objectif (+5) ou cherchez un nouveau mot (+1).
 
 ## Recherche Genius (optionnelle)
 

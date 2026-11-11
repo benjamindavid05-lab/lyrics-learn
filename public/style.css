@@ -1,4 +1,4 @@
-/* Lyrics Learn — éditorial, traits fins, serif + capitales espacées */
+/* Lyrio — éditorial, traits fins, serif + capitales espacées */
 :root{
   --bg:#f6f6f6;--ink:#0a0a0a;--dim:#6b6b6b;--soft:#d8d8d8;--card:#ffffff;--danger:#b3261e;
   --g1:#46e0c9;--g2:#a9e8a1;--g3:#e6e87b;
@@ -833,3 +833,46 @@ summary:hover{transform:translateX(3px)}
 .studybtn+.toggle{margin-left:0}
 
 .nav-ink{bottom:auto}
+
+/* ---------- Lyrio, l'oiseau ---------- */
+.mark{display:inline-block;width:38px;height:38px;flex:none;animation:none}
+.mark svg{width:100%;height:100%}
+.brand:hover .mark svg{animation:hop .6s var(--spring)}
+@keyframes hop{0%,100%{transform:translateY(0) rotate(0)}40%{transform:translateY(-6px) rotate(-8deg)}70%{transform:translateY(1px) rotate(4deg)}}
+.brand span:last-child{font-family:var(--serif);font-weight:700;font-size:22px;letter-spacing:.04em;text-transform:none}
+.birdcard{display:grid;grid-template-columns:auto 1fr;gap:26px;align-items:center;margin:44px 0 0;padding:22px 28px;border:2px solid var(--ink);border-radius:22px;background:linear-gradient(135deg,rgba(185,166,255,.28),rgba(255,226,122,.28));box-shadow:5px 5px 0 var(--ink)}
+.bc-art{display:grid;place-items:center;width:150px;height:150px;border-radius:50%;background:#fff;border:2px solid var(--ink)}
+.bc-art .bird{animation:float 3.2s ease-in-out infinite}
+@keyframes float{0%,100%{transform:translateY(2px)}50%{transform:translateY(-6px) rotate(-2deg)}}
+.bc-main h3{font:700 32px/1.1 var(--serif);margin:6px 0 12px;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.bc-xp{font:800 13px var(--sans);letter-spacing:.08em;padding:4px 10px;border-radius:99px;background:var(--ink);color:var(--bg)}
+.bc-bar{height:14px;border:2px solid var(--ink);border-radius:99px;background:#fff;overflow:hidden}
+.bc-bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--c4),var(--c1),var(--c2));transition:width .8s var(--ease)}
+.bc-next{margin:10px 0 12px;font:700 14px var(--sans)}
+.bc-stages{display:flex;align-items:flex-end;gap:6px;flex-wrap:wrap}
+.bs{display:grid;justify-items:center;gap:2px;filter:grayscale(1);opacity:.4;transition:all .3s}
+.bs.on{filter:none;opacity:1}.bs.now{transform:scale(1.18)}
+.bs small{font:800 10px var(--sans);letter-spacing:.06em;text-transform:uppercase}
+.bsep{font-style:normal;opacity:.4;font-weight:800;align-self:center}
+.bc-how{display:block;margin-top:12px;color:var(--dim);font-weight:700;line-height:1.5}
+@media(max-width:700px){.birdcard{grid-template-columns:1fr;justify-items:center;text-align:center}.bc-main h3,.bc-stages{justify-content:center}}
+/* célébration quand l'oiseau évolue */
+.evo{position:fixed;inset:0;z-index:200;display:grid;place-items:center;background:rgba(10,10,10,.45);backdrop-filter:blur(4px);animation:fade-in .3s ease both;cursor:pointer}
+.evo-card{position:relative;display:grid;justify-items:center;gap:6px;padding:28px 44px 30px;border:3px solid var(--ink);border-radius:26px;background:var(--bg);box-shadow:8px 8px 0 var(--ink);animation:dlg-in .6s var(--spring) both;font-family:var(--serif)}
+.evo-card b{font:700 30px var(--serif)}.evo-card span{font:700 22px var(--serif);color:var(--dim)}
+.evo-bird{animation:hop 1s var(--spring) .2s both}
+.evo-conf i{position:absolute;left:50%;top:40%;font-style:normal;font-size:22px;animation:burst 1.6s ease-out both;animation-delay:calc(var(--i) * .05s)}
+@keyframes burst{from{transform:translate(0,0) scale(.3);opacity:1}to{transform:translate(calc((var(--i) - 6) * 38px),calc(-120px - (var(--i) % 4) * 36px)) rotate(240deg) scale(1.2);opacity:0}}
+.goalwin .bird{vertical-align:middle;margin-right:8px}
+.st-win .bird{animation:float 2.4s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.bc-art .bird,.evo-card,.evo-bird,.evo-conf i,.st-win .bird,.brand:hover .mark svg{animation:none!important}}
+
+/* l'oiseau du logo écoute de la musique : il hoche la tête en rythme, des notes s'envolent */
+.mark{position:relative;width:44px;height:44px;overflow:visible}
+.mark .bobbing{transform-origin:50% 88%;animation:bob-head .62s ease-in-out infinite alternate}
+@keyframes bob-head{0%{transform:rotate(-7deg) translateY(0)}100%{transform:rotate(7deg) translateY(2px)}}
+.mn{position:absolute;left:8px;top:2px;font:700 14px/1 var(--serif);font-style:normal;opacity:0;pointer-events:none;color:var(--c1);animation:note-up 2.4s ease-out infinite}
+.mn.n2{left:26px;color:var(--c4);animation-delay:.8s;font-size:16px}.mn.n3{left:16px;color:var(--c3);animation-delay:1.6s;font-size:12px}
+@keyframes note-up{0%{transform:translate(0,6px) scale(.6);opacity:0}15%{opacity:1}100%{transform:translate(-4px,-26px) rotate(-14deg) scale(1.1);opacity:0}}
+.brand:hover .mark .bobbing{animation-duration:.3s}
+@media(prefers-reduced-motion:reduce){.mark .bobbing,.mn{animation:none!important}.mn{display:none}}

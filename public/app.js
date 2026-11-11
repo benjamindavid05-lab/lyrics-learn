@@ -1,6 +1,7 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
+import { birdSvg, birdXp, birdLevel, BIRD_STAGES } from './bird.js';
 import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
 import { howHtml, goalDiagramHtml, libEmptyHtml, startTour, endTour, isTourOpen } from './guide.js';
@@ -223,6 +224,7 @@ function render() {
   renderPlayer();
   renderGoal();
   fixGoalLang(s);
+  checkBird();
   if (s.sync && s.sync.times && (syncPlaying || syncPos)) syncFrame();
 }
 
@@ -257,7 +259,7 @@ function renderGoal() {
     $('#goalGrid').innerHTML = ws.map((w, i) => `<div class="cell${w.done ? ' done' : ''}" data-i="${i}" role="checkbox" aria-checked="${!!w.done}" tabindex="0" title="${esc(w.note || t('goal.tick'))}">
       <i class="tick" aria-hidden="true">✓</i><button class="sv${savedSet.has(norm(w.word)) ? ' on' : ''}" data-sv="${i}" ${w.tr ? '' : 'disabled'} title="${esc(savedSet.has(norm(w.word)) ? t('goal.unsave') : t('goal.save'))}" aria-label="${esc(t('goal.save'))}" aria-pressed="${savedSet.has(norm(w.word))}">${savedSet.has(norm(w.word)) ? '★' : '☆'}</button><button class="rm" data-rm="${i}" aria-label="${t('common.remove')}">✕</button>
       <b class="cw"><bdi>${esc(w.word)}</bdi></b><span class="ct">${esc(w.tr || '…')}</span></div>`).join('');
-    $('#goalWin').innerHTML = `<b>🎉 ${esc(t('goal.win', { n: ws.length }))}</b> <button class="btn sm" type="button" data-svall="1">☆ ${esc(t('goal.saveAll'))}</button>`;
+    $('#goalWin').innerHTML = `${birdSvg(birdLevel(birdXp(state)).stage, 44)}<b>${esc(t('goal.win', { n: ws.length }))}</b> <button class="btn sm" type="button" data-svall="1">☆ ${esc(t('goal.saveAll'))}</button>`;
     $('#goalFoot').innerHTML = `<label>${esc(t('goal.size'))} ${stepper('sm')}</label><button class="btn" type="button" data-act="suggest">✨ ${esc(t('goal.moreN'))}</button>`;
   }
   $('#goalSide').classList.toggle('quiz', $('#quiz').checked);
@@ -271,6 +273,41 @@ function renderSongList() {
 }
 
 // ---------- accueil ----------
+
+// ---------- Lyrio, l'oiseau : il grandit avec votre progression ----------
+const birdName = (i) => t('bird.' + BIRD_STAGES[i].id);
+function renderBird() {
+  const el = $('#birdCard'); if (!el) return;
+  const lv = birdLevel(birdXp(state));
+  const stages = BIRD_STAGES.map((b, i) => `<span class="bs${i <= lv.stage ? ' on' : ''}${i === lv.stage ? ' now' : ''}" title="${esc(birdName(i))} · ${b.at} XP">${birdSvg(i, 40)}<small>${esc(birdName(i))}</small></span>`).join('<i class="bsep" aria-hidden="true">›</i>');
+  el.innerHTML = `<div class="bc-art">${birdSvg(lv.stage, 132)}</div>
+    <div class="bc-main">
+      <div class="label">${esc(t('bird.title'))}</div>
+      <h3>${esc(birdName(lv.stage))} <span class="bc-xp">${lv.xp} XP</span></h3>
+      <div class="bc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(lv.progress * 100)}"><i style="width:${Math.round(lv.progress * 100)}%"></i></div>
+      <p class="bc-next">${lv.next != null ? esc(t('bird.next', { name: birdName(lv.next), n: lv.need })) : esc(t('bird.max'))}</p>
+      <div class="bc-stages">${stages}</div>
+      <small class="bc-how">${esc(t('bird.how'))}</small>
+    </div>`;
+}
+// un mot cherché compte une seule fois par chanson (pas de points à répéter le même clic)
+function countLookup(s, text) {
+  const n = norm(text); s.looked = s.looked || {};
+  if (s.looked[n]) return; s.looked[n] = 1; state.lookups = (state.lookups || 0) + 1; save();
+}
+// Célébration quand l'oiseau passe au niveau suivant (jamais pour un utilisateur existant lors de la mise à jour : on mémorise son niveau actuel)
+function checkBird() {
+  const lv = birdLevel(birdXp(state));
+  if (state.birdStage === undefined) { state.birdStage = lv.stage; save(); return; }
+  if (lv.stage > state.birdStage && !document.querySelector('dialog[open]')) {
+    state.birdStage = lv.stage; save();
+    const box = document.createElement('div'); box.className = 'evo'; box.setAttribute('role', 'status');
+    box.innerHTML = `<div class="evo-card"><div class="evo-bird">${birdSvg(lv.stage, 150)}</div><b>${esc(t('bird.evolved'))}</b><span>${esc(birdName(lv.stage))}</span><div class="evo-conf" aria-hidden="true">${'🎉✨🎶⭐'.repeat(3).split('').map((c, i) => `<i style="--i:${i}">${c}</i>`).join('')}</div></div>`;
+    box.onclick = () => box.remove(); document.body.append(box); setTimeout(() => box.remove(), 5200);
+    renderBird();
+  }
+}
+
 function renderHome() {
   const songs = Object.values(state.songs).sort((a, b) => b.added - a.added);
   const learned = songs.reduce((n, x) => n + x.goal.words.filter((w) => w.done).length, 0);
@@ -281,6 +318,7 @@ function renderHome() {
   $('#stats').hidden = !songs.length;
   $('#homeSongs').closest('.hblock').hidden = !songs.length;
   $('#how').innerHTML = howHtml(t);
+  renderBird(); checkBird();
   renderStart();
   $('#homeSongs').innerHTML = songs.map((x) => {
     const done = x.goal.words.filter((w) => w.done).length, tot = x.goal.words.length;
@@ -628,7 +666,7 @@ function studyRender() {
   if (end) {
     const saved = new Set(state.library.map((e) => norm(e.text)));
     const items = [...study.looked.values()];
-    $('#stEnd').innerHTML = `<div class="st-win">🎉</div><h2>${esc(t('study.done'))}</h2><p>${esc(t(items.length === 1 ? 'study.summary1' : 'study.summary', { n: items.length }))}</p>
+    $('#stEnd').innerHTML = `<div class="st-win">${birdSvg(birdLevel(birdXp(state)).stage, 110)}</div><h2>${esc(t('study.done'))}</h2><p>${esc(t(items.length === 1 ? 'study.summary1' : 'study.summary', { n: items.length }))}</p>
       ${items.length ? `<div class="st-words">${items.map((w) => `<span class="chip${saved.has(norm(w.text)) ? ' on' : ''}"><b>${esc(w.text)}</b> ${esc(w.tr)}</span>`).join('')}</div><button class="btn solid" type="button" id="stSaveAll">☆ ${esc(t('study.saveAll'))}</button>` : ''}
       <button class="btn" type="button" id="stAgain">↺ ${esc(t('study.again'))}</button>`;
     return;
@@ -663,7 +701,7 @@ async function studyWord(span) {
   const key = `${state.target}|${text}|${i}`;
   let r = wordCache.get(key) || (s.wordsTarget === state.target && s.words && s.words[norm(text)]);
   if (!r) { try { r = await api('/api/translate', { text, target: state.target, source: s.source, context: s.lines[i].text }); wordCache.set(key, r); } catch { r = { text: t('panel.busy'), translit: '' }; } }
-  chip.tr = r.text; chip.rm = r.translit || '';
+  chip.tr = r.text; chip.rm = r.translit || ''; if (r.text && r.text !== t('panel.busy')) countLookup(s, text);
   if (r.text && r.text !== t('panel.busy')) study.looked.set(norm(text), { text, tr: r.text, rm: chip.rm, line: i });
   studyRenderChips(); $('#stXp').textContent = '⭐ ' + t(study.looked.size === 1 ? 'study.word1' : 'study.words', { n: study.looked.size });
 }
@@ -807,7 +845,7 @@ async function openPop(text, lineIdx) {
   const key = `${state.target}|${text}|${lineIdx}`;
   const apply = (r) => {
     if (popCtx?.text !== text) return;
-    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; drawPanel();
+    popCtx.tr = r.text; popCtx.rm = r.translit; popCtx.note = r.note || ''; if (r.text) countLookup(s, text); drawPanel();
   };
   const pre = !/\s/.test(text.trim()) && s.wordsTarget === state.target && s.words?.[norm(text)];
   if (pre) return apply(pre);

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Privacy · Lyrics Learn</title>
+  <title>Privacy · Lyrio</title>
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="stylesheet" href="style.css">
   <style>
@@ -30,7 +30,7 @@
       <p><small>Last updated: November 2026.</small></p>
 
       <h2>What stays in your browser</h2>
-      <p>Lyrics Learn has no accounts and no database. Everything you create is stored <b>only in your browser</b> (this site’s local storage): the songs and their lyrics, translations, saved words, goals, the player you chose and your preferences. This data is not copied to our server and does not move between devices.</p>
+      <p>Lyrio has no accounts and no database. Everything you create is stored <b>only in your browser</b> (this site’s local storage): the songs and their lyrics, translations, saved words, goals, the player you chose and your preferences. This data is not copied to our server and does not move between devices.</p>
       <div class="actions"><button class="btn erase" type="button">Erase my data from this browser</button> <span class="erased small" hidden>Data erased.</span></div>
 
       <h2>What is sent to third-party services</h2>
@@ -50,10 +50,10 @@
       </ul>
 
       <h2>Lyrics and copyright</h2>
-      <p>Lyrics belong to their authors and publishers. Lyrics Learn does not host or publish them: you import them yourself, for your personal learning, and they stay on your device. If you are a rights holder and want something removed, contact us (below).</p>
+      <p>Lyrics belong to their authors and publishers. Lyrio does not host or publish them: you import them yourself, for your personal learning, and they stay on your device. If you are a rights holder and want something removed, contact us (below).</p>
 
       <h2>Non-affiliation</h2>
-      <p>Lyrics Learn is not affiliated with Genius, Spotify, Apple, Deezer, YouTube, SoundCloud, Google or DeepL. These names and logos belong to their owners and are used only to identify the services concerned.</p>
+      <p>Lyrio is not affiliated with Genius, Spotify, Apple, Deezer, YouTube, SoundCloud, Google or DeepL. These names and logos belong to their owners and are used only to identify the services concerned.</p>
 
       <h2>Contact</h2>
       <p>For any question or request: {{CONTACT_EN}}.</p>
@@ -67,7 +67,7 @@
       <p><small>Dernière mise à jour : novembre 2026.</small></p>
 
       <h2>Ce qui reste dans votre navigateur</h2>
-      <p>Lyrics Learn n’a ni compte, ni base de données. Tout ce que vous créez est enregistré <b>uniquement dans votre navigateur</b> (stockage local de ce site) : les chansons et leurs paroles, les traductions, les mots enregistrés, vos objectifs, le lecteur choisi et vos préférences. Ces données ne sont pas copiées sur notre serveur et ne passent pas d’un appareil à l’autre.</p>
+      <p>Lyrio n’a ni compte, ni base de données. Tout ce que vous créez est enregistré <b>uniquement dans votre navigateur</b> (stockage local de ce site) : les chansons et leurs paroles, les traductions, les mots enregistrés, vos objectifs, le lecteur choisi et vos préférences. Ces données ne sont pas copiées sur notre serveur et ne passent pas d’un appareil à l’autre.</p>
       <div class="actions"><button class="btn erase" type="button">Effacer mes données de ce navigateur</button> <span class="erased small" hidden>Données effacées.</span></div>
 
       <h2>Ce qui est envoyé à des services tiers</h2>
@@ -87,10 +87,10 @@
       </ul>
 
       <h2>Paroles et droits d’auteur</h2>
-      <p>Les paroles appartiennent à leurs auteurs et éditeurs. Lyrics Learn ne les héberge pas et ne les publie pas : c’est vous qui les importez, pour votre apprentissage personnel, et elles restent sur votre appareil. Si vous êtes titulaire de droits et souhaitez une suppression, contactez-nous (ci-dessous).</p>
+      <p>Les paroles appartiennent à leurs auteurs et éditeurs. Lyrio ne les héberge pas et ne les publie pas : c’est vous qui les importez, pour votre apprentissage personnel, et elles restent sur votre appareil. Si vous êtes titulaire de droits et souhaitez une suppression, contactez-nous (ci-dessous).</p>
 
       <h2>Non-affiliation</h2>
-      <p>Lyrics Learn n’est pas affilié à Genius, Spotify, Apple, Deezer, YouTube, SoundCloud, Google ou DeepL. Ces noms et logos appartiennent à leurs propriétaires et ne sont utilisés que pour identifier les services concernés.</p>
+      <p>Lyrio n’est pas affilié à Genius, Spotify, Apple, Deezer, YouTube, SoundCloud, Google ou DeepL. Ces noms et logos appartiennent à leurs propriétaires et ne sont utilisés que pour identifier les services concernés.</p>
 
       <h2>Contact</h2>
       <p>Pour toute question ou demande : {{CONTACT_FR}}.</p>
@@ -101,7 +101,7 @@
     try { var s = localStorage.getItem('ll_ui'); if (s === 'fr' || s === 'en') lang = s; } catch (e) {}
     function apply() {
       document.documentElement.lang = lang;
-      document.title = lang === 'fr' ? 'Confidentialité · Lyrics Learn' : 'Privacy · Lyrics Learn';
+      document.title = lang === 'fr' ? 'Confidentialité · Lyrio' : 'Privacy · Lyrio';
       document.querySelectorAll('[data-lang]').forEach(function (b) { b.classList.toggle('active', b.dataset.lang === lang); });
     }
     document.querySelectorAll('[data-lang]').forEach(function (b) { b.onclick = function () { lang = b.dataset.lang; try { localStorage.setItem('ll_ui', lang); } catch (e) {} apply(); }; });

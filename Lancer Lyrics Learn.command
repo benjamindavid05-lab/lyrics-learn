@@ -10,5 +10,5 @@ OLD="$(lsof -ti :"$PORT" 2>/dev/null)"
 if [ -n "$OLD" ]; then echo "→ Arrêt de l'ancien serveur…"; kill $OLD 2>/dev/null; sleep 1; fi
 
 ( sleep 1.5; open "http://localhost:$PORT" 2>/dev/null ) &
-echo "→ Lyrics Learn : http://localhost:$PORT   (fermez cette fenêtre pour arrêter)"
+echo "→ Lyrio : http://localhost:$PORT   (fermez cette fenêtre pour arrêter)"
 PORT="$PORT" exec node server.js

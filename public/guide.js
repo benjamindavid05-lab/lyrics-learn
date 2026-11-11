@@ -5,7 +5,7 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 // Chanson d'exemple, écrite pour l'application (aucun droit d'auteur à gérer) : permet d'essayer tout de suite.
 export const SAMPLE_SONG = {
   title: 'Canción de ejemplo',
-  artist: 'Lyrics Learn',
+  artist: 'Lyrio',
   lyrics: `[Verso 1]
 Hoy me levanto con el sol
 Camino despacio por la ciudad

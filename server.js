@@ -219,4 +219,4 @@ http.createServer(async (req, res) => {
     res.writeHead(200, { 'content-type': TYPES[path.extname(file)] || 'application/octet-stream' });
     res.end(data);
   } catch { res.writeHead(404); res.end('Not found'); }
-}).listen(PORT, () => console.log(`Lyrics Learn → http://localhost:${PORT}`));
+}).listen(PORT, () => console.log(`Lyrio → http://localhost:${PORT}`));
