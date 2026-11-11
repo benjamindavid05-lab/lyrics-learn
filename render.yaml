@@ -2,7 +2,7 @@
 # À chaque `git push` sur main, le site se met à jour tout seul.
 services:
   - type: web
-    name: lyrics-learn
+    name: lyrio
     runtime: node
     plan: free
     region: frankfurt          # serveur en Europe
