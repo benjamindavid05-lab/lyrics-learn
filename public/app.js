@@ -1061,15 +1061,17 @@ document.addEventListener('mousemove', (e) => {
 // ---------- navigation / événements ----------
 let currentTab = 'home';
 // Le choix de la langue de traduction ne sert que quand une chanson est ouverte à la lecture.
-function syncLangPicker() { const el = document.querySelector('.lang'); if (el) el.hidden = !(song() && currentTab === 'song'); }
+function syncLangPicker() { const el = document.querySelector('.lang'); if (el) el.hidden = !(song() && currentTab === 'song'); moveNavInk(); }
 
 // trait coloré qui glisse sous l'onglet actif
 function moveNavInk() {
   const nav = document.querySelector('.nav'), act = nav && nav.querySelector('button.active'); if (!act) return;
   let ink = nav.querySelector('.nav-ink'); if (!ink) { ink = document.createElement('span'); ink.className = 'nav-ink'; nav.append(ink); }
-  ink.style.width = act.offsetWidth + 'px'; ink.style.transform = `translateX(${act.offsetLeft}px)`;
+  ink.style.width = act.offsetWidth + 'px'; ink.style.top = (act.offsetTop + act.offsetHeight - 3) + 'px'; ink.style.transform = `translateX(${act.offsetLeft}px)`;
 }
 window.addEventListener('resize', moveNavInk);
+// la mise en page du menu change quand le sélecteur de langue apparaît, que le compteur change ou que les polices se chargent : on suit
+if (window.ResizeObserver) { const ro = new ResizeObserver(() => moveNavInk()); ro.observe(document.querySelector('.nav')); ro.observe(document.querySelector('.top')); document.querySelectorAll('.nav button').forEach((b) => ro.observe(b)); }
 // onde au clic sur les éléments cliquables
 document.addEventListener('pointerdown', (e) => {
   const el = e.target.closest?.('.btn,.ptab,.lchip,.uilang button,.nav button'); if (!el || el.disabled || matchMedia('(prefers-reduced-motion: reduce)').matches) return;

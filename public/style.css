@@ -831,3 +831,5 @@ summary:hover{transform:translateX(3px)}
 .st-end h2{font:700 34px var(--serif);margin:0}.st-win{font-size:64px;animation:pop-in .6s var(--spring)}
 .st-words{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;max-height:160px;overflow:auto}
 .studybtn+.toggle{margin-left:0}
+
+.nav-ink{bottom:auto}
