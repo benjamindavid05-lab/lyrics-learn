@@ -1,7 +1,7 @@
 // Lien copié depuis un lecteur (Spotify, YouTube, Apple Music, Deezer, SoundCloud) -> titre + artiste, pour chercher la chanson sur Genius.
 // Seuls ces sites sont interrogés (pas de requête vers une adresse choisie par l'utilisateur).
 
-const UA = { 'user-agent': 'Mozilla/5.0 (compatible; LyricsLearn/1.0)', 'accept-language': 'en' };
+const UA = { 'user-agent': 'Mozilla/5.0 (compatible; Lyrio/1.0)', 'accept-language': 'en' };
 const get = (u, opts = {}) => fetch(u, { headers: UA, signal: AbortSignal.timeout(8000), ...opts });
 const decode = (s) => String(s || '').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#x27;|&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').trim();
 const meta = (html, prop) => decode((html.match(new RegExp(`<meta[^>]+(?:property|name)="${prop}"[^>]+content="([^"]*)"`, 'i')) || html.match(new RegExp(`<meta[^>]+content="([^"]*)"[^>]+(?:property|name)="${prop}"`, 'i')) || [])[1]);

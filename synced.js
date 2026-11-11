@@ -59,7 +59,7 @@ export async function findSynced({ title, artist, duration = 0 }) {
   const seen = new Map(); let failures = 0;
   for (const q of queries.slice(0, 8)) {
     try {
-      const res = await fetch('https://lrclib.net/api/search?' + q, { headers: { 'user-agent': 'LyricsLearn/1.0' }, signal: AbortSignal.timeout(9000) });
+      const res = await fetch('https://lrclib.net/api/search?' + q, { headers: { 'user-agent': 'Lyrio/1.0' }, signal: AbortSignal.timeout(9000) });
       if (!res.ok) { failures++; continue; }
       for (const x of await res.json()) if (x && x.syncedLyrics && !seen.has(x.id)) seen.set(x.id, x);
       if (seen.size >= 5 && q.has('track_name')) break; // résultats suffisants

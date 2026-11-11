@@ -1,7 +1,7 @@
 // Retrouve, sur chaque service, le morceau qui correspond à (titre, artiste), pour l'afficher dans un lecteur intégré.
 // Deezer et Apple Music (iTunes) : API publiques sans clé. Spotify et YouTube : facultatifs, avec clé (variables d'environnement).
 
-const UA = 'LyricsLearn/1.0 (+https://github.com/benjamindavid05-lab/lyrics-learn)';
+const UA = 'Lyrio/1.0 (+https://github.com/benjamindavid05-lab/lyrics-learn)';
 
 const norm = (s) => String(s || '').toLowerCase().normalize('NFKD').replace(/[̀-ͯ]/g, '').replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 const tokens = (s) => new Set(norm(s).split(' ').filter(Boolean));
@@ -120,7 +120,7 @@ export function parseYoutubeResults(html) {
 }
 async function youtubeScrape(wt, wa) {
   const r = await fetch('https://www.youtube.com/results?search_query=' + q(`${wa[0] || ''} ${wt[0]} official video`.trim()), {
-    headers: { 'user-agent': 'Mozilla/5.0 (compatible; LyricsLearn/1.0)', 'accept-language': 'en', cookie: 'CONSENT=YES+1' }, signal: AbortSignal.timeout(9000)
+    headers: { 'user-agent': 'Mozilla/5.0 (compatible; Lyrio/1.0)', 'accept-language': 'en', cookie: 'CONSENT=YES+1' }, signal: AbortSignal.timeout(9000)
   });
   if (!r.ok) return [];
   const cands = parseYoutubeResults(await r.text()).map((c) => {
