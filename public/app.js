@@ -54,7 +54,7 @@ async function addSong({ title, artist, url, lyrics, gid, sample, example }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
   state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, example: !!example, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
-  if (pendingPlayer && !sample) { state.songs[id].players = state.songs[id].players || {}; const k = setPlayer(state.songs[id], pendingPlayer, true); if (k && MAIN_SERVICES.includes(k) && (k !== 'spotify' || spot.isConnected())) state.songs[id].playerPref = k; }
+  if (pendingPlayer && !sample) { state.songs[id].players = state.songs[id].players || {}; const k = setPlayer(state.songs[id], pendingPlayer, true); if (k && MAIN_SERVICES.includes(k) && (k !== 'spotify' || spot.isConnected() || spotifyId)) state.songs[id].playerPref = k; }
   pendingPlayer = '';
   state.current = id;
   save();
