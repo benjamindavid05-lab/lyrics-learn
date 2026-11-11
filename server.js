@@ -40,8 +40,8 @@ async function readBody(req) {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : {};
 }
 
-// Limites d'usage par personne (adresse IP) : actives dès que l'app est hébergée (RENDER / APP_PASSWORD) ou avec RATE_LIMIT=on.
-const HOSTED = process.env.RATE_LIMIT !== 'off' && !!(process.env.RENDER || process.env.APP_PASSWORD || process.env.RATE_LIMIT === 'on');
+// Limites d'usage par personne (adresse IP) : actives dès que l'app est hébergée (RENDER) ou avec RATE_LIMIT=on.
+const HOSTED = process.env.RATE_LIMIT !== 'off' && !!(process.env.RENDER || process.env.RATE_LIMIT === 'on');
 const LIM = { hour: +process.env.LIMIT_PER_HOUR || 250, day: +process.env.LIMIT_PER_DAY || 1000, global: +process.env.LIMIT_GLOBAL_PER_DAY || 8000 };
 const buckets = new Map();
 let globalCount = { day: '', n: 0 };
@@ -200,23 +200,9 @@ async function api(req, res, url) {
   } catch (e) { json(res, 502, { error: e.message }); }
 }
 
-// Mot de passe facultatif (APP_PASSWORD) : indispensable si l'app est hébergée en ligne, pour protéger vos clés de traduction.
-const sha = (x) => crypto.createHash('sha256').update(String(x)).digest();
-function authorized(req) {
-  // tolère un espace, un retour à la ligne ou des guillemets collés par erreur autour du mot de passe
-  const clean = (x) => String(x ?? '').trim().replace(/^["']|["']$/g, '').trim();
-  const pass = clean(process.env.APP_PASSWORD);
-  if (!pass) return true;
-  const h = req.headers.authorization || '';
-  if (!h.startsWith('Basic ')) return false;
-  const given = clean(Buffer.from(h.slice(6), 'base64').toString().replace(/^[^:]*:/, ''));
-  return crypto.timingSafeEqual(sha(given), sha(pass));
-}
-
 http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
-  if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok ' + String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7)); } // version en ligne, visible sans mot de passe
-  if (!authorized(req)) { res.writeHead(401, { 'www-authenticate': 'Basic realm="Lyrics Learn", charset="UTF-8"', 'content-type': 'text/plain; charset=utf-8' }); return res.end('Password required'); }
+  if (url.pathname === '/healthz') { res.writeHead(200, { 'content-type': 'text/plain' }); return res.end('ok ' + String(process.env.RENDER_GIT_COMMIT || 'local').slice(0, 7)); } // version en ligne
   if (url.pathname.startsWith('/api/')) return api(req, res, url);
   const rel = url.pathname === '/' ? 'index.html' : (url.pathname === '/confidentialite.html' ? 'privacy.html' : decodeURIComponent(url.pathname).replace(/^\/+/, ''));
   const file = path.resolve(root, rel);

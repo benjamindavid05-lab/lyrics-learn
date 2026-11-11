@@ -47,5 +47,5 @@ DeepL ne fournit ni romanisation ni notes sur les expressions. Diagnostic Gemini
 **En ligne (aucun terminal)** : le fichier `render.yaml` déploie l'app sur Render. À chaque `git push` sur `main`, le site se met à jour tout seul.
 1. Créez un compte sur https://render.com et connectez GitHub.
 2. « New + » > « Blueprint » > choisissez ce dépôt.
-3. Renseignez les variables : `APP_PASSWORD` (obligatoire : protège vos clés), `GEMINI_API_KEY`, `GENIUS_TOKEN`, `CONTACT_EMAIL`. `DEEPL_API_KEY` s'ajoute plus tard dans le tableau de bord.
+3. Renseignez les variables : `GEMINI_API_KEY`, `GENIUS_TOKEN`, `CONTACT_EMAIL`. `DEEPL_API_KEY` s'ajoute plus tard dans le tableau de bord.
 Les données (chansons, mots) restent dans le navigateur de chaque appareil.

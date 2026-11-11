@@ -13,8 +13,6 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "22"
-      - key: APP_PASSWORD      # mot de passe d'accès au site (identifiant : ce que vous voulez)
-        sync: false
       - key: GEMINI_API_KEY    # traduction contextuelle
         sync: false
       - key: GENIUS_TOKEN      # recherche de chansons
