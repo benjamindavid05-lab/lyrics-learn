@@ -112,4 +112,9 @@ assert.ok(checkTyped('Maison', 'maison')); assert.ok(checkTyped('la maison', 'ma
 assert.ok(checkTyped('maisson', 'maison'), 'une faute de frappe tolérée'); assert.ok(!checkTyped('chien', 'chat')); assert.ok(!checkTyped('', 'chat')); assert.ok(!checkTyped('cha', 'chat'));
 assert.equal(normAns('  Le   café! '), 'cafe');
 const e = { text: 'x', tr: 'y' }; assert.equal(review(e, true), 1); assert.equal(review(e, true), 2); assert.equal(review(e, false), 0); assert.equal(e.ok, 2); assert.equal(e.ko, 1); assert.equal(masteredCount([{ text: 'a', tr: 'b', box: 3 }, e]), 1);
+
+// Spotify : PKCE (vecteur de test de la RFC 7636, annexe B)
+import { pkceChallenge, randomVerifier } from './public/spotify.js';
+assert.equal(await pkceChallenge('dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk'), 'E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM');
+assert.match(randomVerifier(), /^[A-Za-z0-9_-]{43,}$/);
 console.log('ok');

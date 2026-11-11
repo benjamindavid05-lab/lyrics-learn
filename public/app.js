@@ -1,6 +1,7 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
+import * as spot from './spotify.js';
 import { pickWords, makeChoice, checkTyped, review, masteredCount, usable, XP_PER_OK, XP_PERFECT } from './game.js';
 import { birdSvg, birdXp, birdLevel, BIRD_STAGES } from './bird.js';
 import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
@@ -60,7 +61,7 @@ async function addSong({ title, artist, url, lyrics, gid, sample, example }) {
   if (!sample) loadMedia(state.songs[id]); // liens d'écoute connus de Genius : la chanson s'affiche tout de suite
 }
 
-let geminiOn = false;
+let geminiOn = false, spotifyId = '', spBad = '';
 
 async function translateSong() {
   const s = song(); if (!s) return;
@@ -920,6 +921,44 @@ function nowRender() {
 $('#nbToggle').addEventListener('click', () => { try { if (syncPlaying) playerCtl.pause(); else playerCtl.play(); } catch {} });
 $('#nbGo').addEventListener('click', () => showTab('song'));
 
+// ---------- Spotify connecté dans la page (lecture complète, Premium) ----------
+let spStarted = false, spUri = '';
+function spState(st) {
+  const tr = st.track_window && st.track_window.current_track;
+  if (!tr || (spUri && tr.uri !== spUri && !(tr.linked_from && tr.linked_from.uri === spUri))) return; // un autre morceau joue : on ignore
+  const pos = st.position / 1000 + (st.paused ? 0 : (Date.now() - st.timestamp) / 1000);
+  onTick(pos, !st.paused, st.duration / 1000);
+  const info = $('#spInfo'); if (info) info.textContent = `${tr.name} · ${(tr.artists || []).map((a) => a.name).join(', ')}`;
+  const go = $('#spGo'); if (go) go.textContent = st.paused ? '▶ ' + t('sp.play') : '⏸ ' + t('now.pause');
+}
+async function spOwnStart(id, fk) {
+  spUri = `spotify:track:${id}`; spStarted = false;
+  try {
+    const box = await spot.startPlayer({ onState: spState, onError: (k) => { if (k === 'premium') { spBad = 'premium'; renderPlayer(); } } });
+    if (frameKey !== fk) return;
+    playerCtl = { play: () => (spStarted ? box.resume() : (spStarted = true, box.playTrack(spUri))), pause: () => box.pause(), seek: (sec) => box.seek(sec) };
+    syncStop = () => {};
+    window.__spBox = box;
+    if (study.open) studyMusicRender();
+  } catch (e) {
+    if (frameKey !== fk) return;
+    if (!spBad) spBad = e.message === 'premium' ? 'premium' : 'error';
+    renderPlayer();
+  }
+}
+document.addEventListener('click', async (e) => {
+  const s = song(); if (!s) return;
+  if (e.target.closest('#spConnect')) {
+    const b = e.target.closest('#spConnect'); b.disabled = true;
+    try { await spot.connect(spotifyId); spBad = ''; renderPlayer(); } catch (err) { b.disabled = false; const n = b.parentElement.querySelector('small'); if (n) n.textContent = err.message === 'popup' ? t('sp.popup') : t('sp.fail'); }
+  } else if (e.target.closest('#spGo')) {
+    try { if (!playerCtl) return; if (syncPlaying) playerCtl.pause(); else playerCtl.play(); } catch { /* lecteur non prêt */ }
+  } else if (e.target.closest('#spOut')) {
+    try { window.__spBox && window.__spBox.stop(); } catch { /* rien */ }
+    spot.disconnect(); spBad = ''; stopSync(); renderPlayer();
+  }
+});
+
 let frameKey = '', formKey = '', playerEditing = false;
 const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);
 function renderPlayer() {
@@ -934,7 +973,7 @@ function renderPlayer() {
     + (sel ? `<button class="link" type="button" data-p="remove">${esc(t('player.remove'))}</button>` : '');
   // lecteur : recréé seulement si le morceau change, pour ne pas couper la musique
   const p = sel && s.players[sel];
-  const fk = `${s.id}|${p ? p.src : ''}${p ? '' : '|' + !!s.finding}|${getLang()}`;
+  const fk = `${s.id}|${p ? p.src : ''}${p ? '' : '|' + !!s.finding}|${getLang()}|${spot.isConnected() ? 1 : 0}${spBad ? 1 : 0}`;
   if (fk !== frameKey) {
     frameKey = fk;
     const h = p && frameHeight(p);
@@ -943,10 +982,15 @@ function renderPlayer() {
     const src = p && p.kind === 'yt' ? p.src + (p.src.includes('?') ? '&' : '?') + 'enablejsapi=1&playsinline=1&origin=' + encodeURIComponent(location.origin) : p && p.src;
     const iframeHtml = (u) => `<iframe class="${p.kind === 'yt' ? 'yt' : ''}" src="${esc(u)}" ${h ? `height="${h}"` : ''} loading="lazy" referrerpolicy="strict-origin-when-cross-origin"
           allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture" allowfullscreen title="${esc(t('player.title'))} ${esc(p.provider)}"></iframe>`;
+    const spOwn = !!(spTrack && spotifyId && spot.isConnected() && !spBad);
+    const spBanner = spTrack && spotifyId && !spOwn ? `<div class="sp-connect"><button type="button" class="btn solid sm" id="spConnect">${esc(t('sp.connect'))}</button><small>${esc(spBad === 'premium' ? t('sp.notPremium') : spBad ? t('sp.fail') : t('sp.connectNote'))}</small></div>` : '';
     $('#pframe').innerHTML = p
-      ? `${spTrack ? '<div id="spHost"></div>' : iframeHtml(src)}<p class="pnote">${esc(t('player.note'))}</p>`
+      ? (spOwn
+        ? `<div id="spOwn" class="sp-own"><span class="sp-ico" aria-hidden="true">♪</span><div class="sp-meta"><b>Spotify · ${esc(t('sp.full'))}</b><small id="spInfo">${esc(t('sp.ready'))}</small></div><button type="button" class="btn solid" id="spGo">▶ ${esc(t('sp.play'))}</button><button type="button" class="link" id="spOut">${esc(t('sp.out'))}</button></div>`
+        : `${spBanner}${spTrack ? '<div id="spHost"></div>' : iframeHtml(src)}<p class="pnote">${esc(t('player.note'))}</p>`)
       : (s.finding ? '' : `<p class="pnote">${esc(t('player.none'))}</p>`);
-    if (p && canSync(p.provider)) {
+    if (spOwn) { spOwnStart(spTrack[1], fk); }
+    if (p && canSync(p.provider) && !spOwn) {
       const ok = (res) => { if (frameKey === fk) { syncStop = res.stop; playerCtl = res.ctl; if (study.open) studyMusicRender(); } else res.stop(); };
       if (spTrack) {
         attachSpotify($('#spHost'), `spotify:track:${spTrack[1]}`, onTick).then(ok).catch(() => {
@@ -1522,7 +1566,7 @@ songsDlg.addEventListener('click', (e) => { if (e.target === songsDlg) songsDlg.
 
 try {
   const st = await api('/api/status');
-  geminiOn = !!st.gemini;
+  geminiOn = !!st.gemini; spotifyId = st.spotifyClientId || '';
 } catch {}
 await initLanguages();
 applyStatic();

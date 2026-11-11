@@ -67,7 +67,7 @@ function rateLimit(req) {
 async function api(req, res, url) {
   if (COUNTED.has(url.pathname)) { const limited = rateLimit(req); if (limited) return json(res, 429, { error: limited }); }
   try {
-    if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel() });
+    if (url.pathname === '/api/status') return json(res, 200, { gemini: llmConfigured(), deepl: deeplOn(), model: llmModel(), spotifyClientId: process.env.SPOTIFY_CLIENT_ID || '' }); // l'identifiant client est public (PKCE)
     if (url.pathname === '/api/spotify-check') return json(res, 200, await spotifyCheck());
     if (url.pathname === '/api/find-track') {
       // Retrouve le morceau sur Deezer, Apple Music (et Spotify / YouTube si des clés sont configurées) pour les lecteurs intégrés
