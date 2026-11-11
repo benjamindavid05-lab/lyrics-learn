@@ -494,9 +494,9 @@ async function loadMedia(s) {
 const ensureMedia = (s) => { if (s && (!s.mediaLoaded || s.mediaV !== 3) && !s.finding) loadMedia(s); };
 
 // ---------- surlignage synchronisé avec la musique (mot à mot) ----------
-let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
+let playerCtl = null, syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
 let follow = true; try { follow = localStorage.getItem('ll_follow') !== '0'; } catch {}
-function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerSeen = false; playerPreview = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
+function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerCtl = null; playerSeen = false; playerPreview = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
 function clearPlaying() {
   if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
@@ -547,6 +547,10 @@ const getOff = (s) => { const o = (s.syncOffs || {})[offKey(s)]; return o != nul
 const setOff = (s, v) => { s.syncOffs = s.syncOffs || {}; s.syncOffs[offKey(s)] = Math.round(v * 10) / 10; };
 let syncCorr = 0, syncCorrAt = 0;
 function feed(pos, playing, dur) {
+  if (study.open) {
+    if (study.listenUntil != null && playing && pos >= study.listenUntil) { study.listenUntil = null; try { playerCtl && playerCtl.pause(); } catch {} }
+    studyMusicRender(playing);
+  }
   // lissage : un petit écart entre l'horloge interne et la position annoncée est résorbé en 0,4 s au lieu de provoquer un saut
   const pred = currentPos(), diff = syncPlaying && playing ? pred - pos : 0;
   syncCorr = Math.abs(diff) < 0.5 ? diff : 0; syncCorrAt = performance.now();
@@ -632,7 +636,7 @@ $('#follow').onchange = () => { follow = $('#follow').checked; try { localStorag
 
 
 // ---------- mode étude : une ligne à la fois, à votre rythme ----------
-const study = { open: false, list: [], k: 0, shown: false, auto: false, speed: 1, timer: 0, looked: new Map(), follow: false, chips: [] };
+const study = { listenUntil: null, open: false, list: [], k: 0, shown: false, auto: false, speed: 1, timer: 0, looked: new Map(), follow: false, chips: [] };
 function studyOpen() {
   const s = song(); if (!s) return;
   const list = s.lines.map((l, i) => (lineKind(l.text) === 'line' ? i : -1)).filter((i) => i >= 0);
@@ -640,7 +644,8 @@ function studyOpen() {
   Object.assign(study, { open: true, list, k: 0, shown: false, auto: false, looked: new Map(), follow: false, chips: [] });
   const start = syncPlaying && syncIdx >= 0 ? syncIdx : activeLine != null ? activeLine : list[0];
   const k = list.indexOf(start); if (k >= 0) study.k = k;
-  study.follow = !!(syncPlaying && s.sync && s.sync.times && s.sync.v === 2);
+  study.follow = false; study.listenUntil = null;
+  try { if (playerCtl && syncPlaying) playerCtl.pause(); } catch {} // on étudie : la musique s'arrête, elle se relance depuis la fenêtre
   $('#studyDlg').showModal(); studyRender();
 }
 function studyClose() { clearTimeout(study.timer); study.open = false; study.auto = false; if ($('#studyDlg').open) $('#studyDlg').close(); }
@@ -662,7 +667,7 @@ function studyRender() {
   $('#stXp').textContent = '⭐ ' + t(study.looked.size === 1 ? 'study.word1' : 'study.words', { n: study.looked.size });
   const canFollow = !!(s.sync && s.sync.times && s.sync.v === 2 && syncPlaying);
   $('#stFollow').innerHTML = study.follow ? `<b class="dot ok"></b> ${esc(t('study.following'))}` : canFollow ? `<button type="button" class="link" id="stResume">♪ ${esc(t('study.resume'))}</button>` : '';
-  $('#stHint').textContent = t('study.hint');
+  $('#stHint').textContent = t('study.hint'); studyMusicRender();
   if (end) {
     const saved = new Set(state.library.map((e) => norm(e.text)));
     const items = [...study.looked.values()];
@@ -708,6 +713,35 @@ async function studyWord(span) {
 function studyRenderChips() {
   $('#stMeaning').innerHTML = study.chips.map((c, m) => `<span class="chip"><b>${esc(c.text)}</b> ${c.tr ? esc(c.tr) : '…'} ${c.tr ? `<button type="button" data-stsave="${m}" aria-label="${esc(t('goal.save'))}">${state.library.some((e) => norm(e.text) === norm(c.text)) ? '★' : '☆'}</button>` : ''}</span>`).join('');
 }
+
+// ---- musique pilotée depuis le mode étude : pause / lecture / « écouter cette ligne » ----
+function studyMusicRender(playingNow) {
+  const box = $('#stMusic'); if (!box) return;
+  const s = song(); const p = s && s.players[s.playerPref];
+  const playing = playingNow != null ? playingNow : syncPlaying;
+  if (!p) { box.innerHTML = ''; return; }
+  if (!playerCtl) { box.innerHTML = `<small>${esc(t('study.noctl'))}</small>`; return; }
+  const i = study.list[study.k];
+  const canListen = !!(s.sync && s.sync.v === 2 && s.sync.times && i != null && s.sync.times[i] != null);
+  box.innerHTML = `<button type="button" class="btn sm${playing ? ' on' : ''}" data-mu="toggle">${playing ? '⏸ ' + esc(t('study.musicPause')) : '♪ ' + esc(t('study.musicPlay'))}</button>`
+    + (canListen ? ` <button type="button" class="btn sm" data-mu="listen">🔁 ${esc(t('study.listen'))}</button>` : '');
+}
+function studyMusicAction(a) {
+  const s = song(); if (!s || !playerCtl) return;
+  try {
+    if (a === 'toggle') {
+      if (syncPlaying) { playerCtl.pause(); study.follow = false; study.listenUntil = null; }
+      else { playerCtl.play(); study.follow = !!(s.sync && s.sync.times && s.sync.v === 2); studyRender(); }
+    } else if (a === 'listen') {
+      const i = study.list[study.k], off = getOff(s);
+      study.follow = false; study.auto = false; clearTimeout(study.timer);
+      study.listenUntil = s.sync.ends[i] - off + 0.25;
+      playerCtl.seek(s.sync.times[i] - off - 0.2); playerCtl.play();
+    }
+  } catch { /* lecteur indisponible */ }
+  studyMusicRender();
+}
+$('#stMusic').addEventListener('click', (e) => { const b = e.target.closest('[data-mu]'); if (b) studyMusicAction(b.dataset.mu); });
 $('#studyBtn').onclick = studyOpen;
 $('#stClose').onclick = studyClose;
 $('#studyDlg').addEventListener('close', () => { clearTimeout(study.timer); study.open = false; study.auto = false; });
@@ -763,7 +797,7 @@ function renderPlayer() {
       ? `${spTrack ? '<div id="spHost"></div>' : iframeHtml(src)}<p class="pnote">${esc(t('player.note'))}</p>`
       : (s.finding ? '' : `<p class="pnote">${esc(t('player.none'))}</p>`);
     if (p && canSync(p.provider)) {
-      const ok = (stop) => { if (frameKey === fk) syncStop = stop; else stop(); };
+      const ok = (res) => { if (frameKey === fk) { syncStop = res.stop; playerCtl = res.ctl; if (study.open) studyMusicRender(); } else res.stop(); };
       if (spTrack) {
         attachSpotify($('#spHost'), `spotify:track:${spTrack[1]}`, onTick).then(ok).catch(() => {
           const host = $('#spHost'); if (host && frameKey === fk) host.outerHTML = iframeHtml(p.src);

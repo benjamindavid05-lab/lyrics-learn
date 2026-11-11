@@ -1013,3 +1013,7 @@ body{background-color:var(--bg);background-image:url("data:image/svg+xml;utf8,<s
 .card.new span{font:400 54px/1 var(--hand)}.card.new small{font:700 21px var(--hand);letter-spacing:0;text-transform:none}
 .card.new:hover{background:rgba(255,227,107,.35)}
 .cell.done,.goalwin{background:#cfe6b8}
+
+.st-music{display:flex;justify-content:center;align-items:center;gap:10px;flex-wrap:wrap;padding:2px 22px 4px;min-height:8px}
+.st-music small{font:700 18px var(--hand);color:var(--dim);text-align:center}
+.st-music .btn.on{background:var(--c2);color:#1e1b16}

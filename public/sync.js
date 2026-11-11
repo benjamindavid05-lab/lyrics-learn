@@ -144,7 +144,7 @@ export const canSync = (provider) => ['Spotify', 'YouTube', 'SoundCloud'].includ
 
 // Branche un lecteur déjà affiché (iframe) et appelle onTick(secondes, enLecture). Renvoie une fonction d'arrêt.
 export async function attachPlayer(provider, iframe, onTick, onFail) {
-  let stop = () => {};
+  let stop = () => {}; let ctl = null;
   if (provider === 'YouTube') {
     await within(new Promise((resolve) => {
       if (window.YT?.Player) return resolve();
@@ -160,6 +160,7 @@ export async function attachPlayer(provider, iframe, onTick, onFail) {
       push(); if (playing) timer = setInterval(push, 250);
     } } });
     stop = () => { clearInterval(timer); try { player.destroy(); } catch {} };
+    ctl = { play: () => player.playVideo(), pause: () => player.pauseVideo(), seek: (sec) => player.seekTo(Math.max(0, sec), true) };
   } else if (provider === 'SoundCloud') {
     await within(loadScript('https://w.soundcloud.com/player/api.js'), 8000);
     const w = window.SC.Widget(iframe);
@@ -167,8 +168,9 @@ export async function attachPlayer(provider, iframe, onTick, onFail) {
     w.bind(window.SC.Widget.Events.PLAY_PROGRESS, (e) => onTick(e.currentPosition / 1000, true, dur));
     w.bind(window.SC.Widget.Events.PAUSE, () => w.getPosition((ms) => onTick(ms / 1000, false)));
     w.bind(window.SC.Widget.Events.FINISH, () => onTick(0, false));
+    ctl = { play: () => w.play(), pause: () => w.pause(), seek: (sec) => w.seekTo(Math.max(0, sec) * 1000) };
   }
-  return stop;
+  return { stop, ctl };
 }
 
 // Spotify : l'API officielle crée elle-même le lecteur (events playback_update avec la position en ms).
@@ -181,7 +183,7 @@ export async function attachSpotify(host, uri, onTick) {
   return new Promise((resolve) => {
     api.createController(host, { uri, width: '100%', height: 80 }, (ctrl) => {
       ctrl.addListener('playback_update', (e) => onTick((e.data.position || 0) / 1000, !e.data.isPaused && !e.data.isBuffering, (e.data.duration || 0) / 1000));
-      resolve(() => { try { ctrl.destroy(); } catch {} });
+      resolve({ stop: () => { try { ctrl.destroy(); } catch {} }, ctl: { play: () => ctrl.resume(), pause: () => ctrl.pause(), seek: (sec) => ctrl.seek(Math.max(0, sec)) } });
     });
   });
 }
