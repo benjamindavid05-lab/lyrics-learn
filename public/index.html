@@ -183,6 +183,15 @@
     <div id="libEmpty" hidden></div>
   </main>
 
+  <div id="nowBar" class="nowbar" role="status" aria-live="polite" hidden>
+    <span class="nb-bird" aria-hidden="true"></span>
+    <span class="nb-eq" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+    <span class="nb-txt"><b id="nbTitle"></b><small id="nbArtist"></small></span>
+    <span class="nb-time" id="nbTime"></span>
+    <button type="button" class="nb-btn" id="nbToggle" aria-label="Pause"></button>
+    <button type="button" class="nb-go" id="nbGo"></button>
+    <i class="nb-bar" aria-hidden="true"><u id="nbProg"></u></i>
+  </div>
   <footer class="foot"><a href="privacy.html" data-i18n="foot.priv">Privacy</a><span data-i18n="foot.text"> · Lyrio is not affiliated with Genius. Lyrics belong to their authors and are shown for learning purposes. Genius is a trademark of Genius Media Group Inc.</span></footer>
 
   <dialog id="songsDlg" class="dlg">

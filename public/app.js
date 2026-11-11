@@ -498,7 +498,7 @@ const ensureMedia = (s) => { if (s && (!s.mediaLoaded || s.mediaV !== 3) && !s.f
 // ---------- surlignage synchronisé avec la musique (mot à mot) ----------
 let playerCtl = null, syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
 let follow = true; try { follow = localStorage.getItem('ll_follow') !== '0'; } catch {}
-function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerCtl = null; playerSeen = false; playerPreview = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
+function stopSync() { try { syncStop && syncStop(); } catch {} syncStop = null; playerCtl = null; setTimeout(nowRender, 0); playerSeen = false; playerPreview = false; if (!manualOn) { syncPlaying = false; cancelAnimationFrame(syncRaf); syncRaf = 0; } clearPlaying(); }
 function clearPlaying() {
   if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
@@ -549,6 +549,7 @@ const getOff = (s) => { const o = (s.syncOffs || {})[offKey(s)]; return o != nul
 const setOff = (s, v) => { s.syncOffs = s.syncOffs || {}; s.syncOffs[offKey(s)] = Math.round(v * 10) / 10; };
 let syncCorr = 0, syncCorrAt = 0;
 function feed(pos, playing, dur) {
+  setTimeout(nowRender, 0);
   if (study.open) {
     if (study.listenUntil != null && playing && pos >= study.listenUntil) { study.listenUntil = null; try { playerCtl && playerCtl.pause(); } catch {} }
     studyMusicRender(playing);
@@ -893,6 +894,31 @@ document.addEventListener('keydown', (e) => {
   else if (play.phase === 'q' && (e.code === 'Enter') && play.answered && !(play.mode === 'quiz' ? play.pick === play.q.correct : play.lastOk)) { if (!/^(INPUT)$/.test(document.activeElement.tagName)) playNext(); }
   else if (play.phase === 'q' && play.mode === 'quiz' && !play.answered && /^[1-4]$/.test(e.key)) { const k = Number(e.key) - 1; if (play.q && play.q.choices[k] != null) { play.pick = k; playAnswer(k === play.q.correct, play.qs[play.i]); } }
 });
+
+// ---------- « en lecture » : indicateur visible sur toutes les pages ----------
+const fmtTime = (sec) => { sec = Math.max(0, Math.floor(sec || 0)); return `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`; };
+let nowTimer = 0, baseTitle = '';
+function nowRender() {
+  const bar = $('#nowBar'); if (!bar) return;
+  const s = song();
+  const show = !!(s && playerCtl && playerSeen && !playerPreview) && currentTab !== 'song';
+  const playing = !!(s && playerCtl && playerSeen && syncPlaying);
+  // onglet « Lecture » : petites barres animées quand ça joue
+  document.querySelector('.nav button[data-tab="song"]')?.classList.toggle('is-playing', playing);
+  // titre de la page : ♪ pendant la lecture
+  if (!baseTitle) baseTitle = document.title;
+  if (playing && s) document.title = `♪ ${s.title} · Lyrio`; else if (baseTitle && document.title.startsWith('♪')) document.title = baseTitle;
+  bar.hidden = !show; bar.classList.toggle('on', playing); document.body.classList.toggle('has-now', show);
+  if (!show) { clearInterval(nowTimer); nowTimer = 0; return; }
+  if (!bar.dataset.bird) { bar.dataset.bird = '1'; bar.querySelector('.nb-bird').innerHTML = birdSvg(3, 40, { tail: false, legs: false, phones: true }); }
+  $('#nbTitle').textContent = s.title; $('#nbArtist').textContent = s.artist || '';
+  $('#nbToggle').textContent = playing ? '⏸' : '▶'; $('#nbToggle').setAttribute('aria-label', t(playing ? 'now.pause' : 'now.play'));
+  $('#nbGo').textContent = t('now.open');
+  const tick = () => { const p = currentPos(), d = syncKnownDur; $('#nbTime').textContent = d ? `${fmtTime(p)} / ${fmtTime(d)}` : fmtTime(p); $('#nbProg').style.width = d ? `${Math.min(100, (p / d) * 100)}%` : '0'; };
+  tick(); clearInterval(nowTimer); if (playing) nowTimer = setInterval(tick, 500);
+}
+$('#nbToggle').addEventListener('click', () => { try { if (syncPlaying) playerCtl.pause(); else playerCtl.play(); } catch {} });
+$('#nbGo').addEventListener('click', () => showTab('song'));
 
 let frameKey = '', formKey = '', playerEditing = false;
 const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);
@@ -1278,7 +1304,7 @@ document.addEventListener('pointerdown', (e) => {
   el.append(dot); setTimeout(() => dot.remove(), 650);
 });
 function showTab(name) {
-  currentTab = name;
+  currentTab = name; setTimeout(nowRender, 0);
   document.querySelectorAll('.nav button[data-tab]').forEach((x) => x.classList.toggle('active', x.dataset.tab === name));
   $('#homeTab').hidden = name !== 'home'; $('#songTab').hidden = name !== 'song'; $('#libraryTab').hidden = name !== 'library';
   closePop(); hideTip(); window.scrollTo({ top: 0, behavior: 'smooth' }); moveNavInk();

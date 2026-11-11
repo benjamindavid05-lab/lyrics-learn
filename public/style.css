@@ -1115,3 +1115,31 @@ h1,h2,h3{font-weight:800}
 .pg-end{position:relative}.pg-conf{position:absolute;top:0;left:0;right:0;font-size:26px;letter-spacing:14px;text-align:center;animation:pop-in .8s var(--spring)}
 @media(max-width:560px){.pg-modes{grid-template-columns:1fr}.pg-choices{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.pg-bird .bird,.pc-art .bird,.pg-conf,.pg-streak,.pg-choices button.right,.pg-choices button.wrong{animation:none!important}}
+
+/* ---------- « en lecture » : mini-lecteur fixe + onglet animé ---------- */
+.nowbar{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:12px;max-width:min(640px,calc(100vw - 24px));padding:8px 14px 12px 10px;border:2px solid var(--ink);border-radius:18px 8px 16px 8px/8px 16px 8px 18px;background:var(--card);box-shadow:4px 5px 0 rgba(30,27,22,.85);animation:now-in .45s var(--spring);overflow:hidden}
+@keyframes now-in{from{opacity:0;transform:translate(-50%,30px) scale(.94)}to{opacity:1;transform:translateX(-50%)}}
+.nb-bird{display:block;width:40px;height:40px;flex:none}.nb-bird svg{display:block}
+.nowbar.on .nb-bird{animation:bob-head .55s ease-in-out infinite alternate;transform-origin:50% 90%}
+.nb-eq{display:inline-flex;align-items:flex-end;gap:3px;height:20px;flex:none}
+.nb-eq i{width:4px;height:5px;border-radius:2px;background:var(--c1)}
+.nb-eq i:nth-child(2){background:#e0a800}.nb-eq i:nth-child(3){background:#4f9a72}.nb-eq i:nth-child(4){background:var(--pen)}
+.nowbar.on .nb-eq i{animation:eqb2 .9s ease-in-out infinite}
+.nowbar.on .nb-eq i:nth-child(2){animation-delay:.18s}.nowbar.on .nb-eq i:nth-child(3){animation-delay:.36s}.nowbar.on .nb-eq i:nth-child(4){animation-delay:.1s}
+@keyframes eqb2{0%,100%{height:4px}50%{height:20px}}
+.nb-txt{display:grid;min-width:0;flex:1}.nb-txt b{font:800 15px/1.2 var(--serif);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-txt small{font:700 12px var(--sans);color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-time{font:800 12px var(--sans);color:var(--dim);white-space:nowrap}
+.nb-btn{width:38px;height:38px;border-radius:50%;border:2px solid var(--ink);background:#ffe36b;color:#1e1b16;font-size:15px;cursor:pointer;flex:none;transition:transform .2s var(--spring)}
+.nb-btn:hover{transform:scale(1.1)}.nb-btn:active{transform:scale(.92)}
+.nb-go{border:0;background:none;font:800 12px var(--sans);letter-spacing:.06em;text-transform:uppercase;color:var(--ink);text-decoration:underline;cursor:pointer;white-space:nowrap}
+.nb-bar{position:absolute;left:0;right:0;bottom:0;height:4px;background:rgba(30,27,22,.12)}.nb-bar u{display:block;height:100%;width:0;background:var(--c1);transition:width .5s linear}
+@media(max-width:560px){.nb-time,.nb-eq{display:none}.nowbar{bottom:10px;gap:8px}}
+.nav button.is-playing::after{content:"";position:absolute;right:-2px;top:2px;width:14px;height:12px;background:
+  linear-gradient(var(--c1),var(--c1)) 0 100%/3px 40% no-repeat,linear-gradient(#e0a800,#e0a800) 5px 100%/3px 40% no-repeat,linear-gradient(var(--pen),var(--pen)) 10px 100%/3px 40% no-repeat;animation:navbars .8s ease-in-out infinite}
+@keyframes navbars{0%,100%{background-size:3px 30%,3px 90%,3px 50%}33%{background-size:3px 90%,3px 40%,3px 100%}66%{background-size:3px 50%,3px 100%,3px 30%}}
+@media(prefers-reduced-motion:reduce){.nowbar,.nowbar.on .nb-bird,.nowbar.on .nb-eq i,.nav button.is-playing::after{animation:none!important}}
+body{padding-bottom:0}
+
+.has-now .foot{margin-bottom:84px}
+.nav button.is-playing::after{right:3px;top:3px}
