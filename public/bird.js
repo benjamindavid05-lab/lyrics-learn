@@ -69,7 +69,7 @@ export function birdSvg(stage = 3, size = 96, opts = {}) {
 export function birdXp(state) {
   const songs = Object.values(state.songs || {});
   const learned = songs.reduce((n, s) => n + ((s.goal && s.goal.words) || []).filter((w) => w.done).length, 0);
-  return songs.length * 10 + (state.library || []).length * 3 + learned * 5 + (state.lookups || 0);
+  return songs.length * 10 + (state.library || []).length * 3 + learned * 5 + (state.lookups || 0) + (state.quizXp || 0);
 }
 
 /** { stage, next, progress 0..1, xp, need } */

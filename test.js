@@ -95,4 +95,21 @@ const ex = alignLines(['Ich will nur hier raus!'], pf);
 assert.equal(ex.exact[0], true); assert.deepEqual(ex.words[0], [23.2, 23.38, 23.6, 24.16, 24.42]);
 assert.equal(locate(ex, 23.7).k, 2); assert.equal(locate(ex, 24.5).k, 4); assert.equal(locate(ex, 30).i, -1);
 const lp = locate(ex, 23.49); assert.equal(lp.k, 1); assert.ok(lp.p > 0.4 && lp.p < 0.7);
+
+// jeu « Se tester »
+import { pickWords, makeChoice, checkTyped, review, masteredCount, normAns } from './public/game.js';
+const lib = [
+  { text: 'liebe', tr: 'amour' }, { text: 'Haus', tr: 'maison' }, { text: 'Hund', tr: 'chien' }, { text: 'Katze', tr: 'chat' },
+  { text: 'Baum', tr: 'arbre', box: 4, last: Date.now() }, { text: 'vide', tr: '' }
+];
+assert.equal(pickWords(lib, 3).length, 3); assert.ok(!pickWords(lib, 10).some((e) => !e.tr), 'jamais un mot sans traduction');
+assert.ok(pickWords(lib, 4, () => 0.5).every((e) => e.text !== 'Baum'), 'le mot maîtrisé passe en dernier');
+const q = makeChoice(lib[0], lib, () => 0.9);
+assert.equal(q.choices.length, 4); assert.equal(q.choices[q.correct], 'amour'); assert.equal(new Set(q.choices).size, 4);
+const qr = makeChoice(lib[1], lib, () => 0.1); assert.equal(qr.rev, true); assert.equal(qr.answer, 'Haus');
+assert.equal(makeChoice(lib[0], lib.slice(0, 3)), null, 'pas assez de mots différents');
+assert.ok(checkTyped('Maison', 'maison')); assert.ok(checkTyped('la maison', 'maison')); assert.ok(checkTyped('to dance', 'dance, to dance') && checkTyped('danser', 'danser'));
+assert.ok(checkTyped('maisson', 'maison'), 'une faute de frappe tolérée'); assert.ok(!checkTyped('chien', 'chat')); assert.ok(!checkTyped('', 'chat')); assert.ok(!checkTyped('cha', 'chat'));
+assert.equal(normAns('  Le   café! '), 'cafe');
+const e = { text: 'x', tr: 'y' }; assert.equal(review(e, true), 1); assert.equal(review(e, true), 2); assert.equal(review(e, false), 0); assert.equal(e.ok, 2); assert.equal(e.ko, 1); assert.equal(masteredCount([{ text: 'a', tr: 'b', box: 3 }, e]), 1);
 console.log('ok');

@@ -7,7 +7,7 @@
   <meta name="description" content="Import song lyrics, read them with their translation, save the words you want to learn.">
   <link rel="icon" href="logo.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500;1,9..144,700&family=Caveat:wght@500;700&family=Fredoka:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;600;700;800&family=Caveat:wght@500;700&family=Nunito:wght@400;600;700;800&display=swap">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -25,7 +25,7 @@
     <path d="M74 48l20 8-20 10z" fill="#ffe27a" stroke="#0a0a0a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
     <circle cx="58" cy="50" r="5" fill="#0a0a0a"/><circle cx="59.6" cy="48.4" r="1.6" fill="#fff"/>
     <path d="M38 52C30 8 80 4 80 40" fill="none" stroke="#0a0a0a" stroke-width="11" stroke-linecap="round"/><path d="M38 52C30 8 80 4 80 40" fill="none" stroke="#ffe27a" stroke-width="5" stroke-linecap="round"/>
-    <circle cx="38" cy="62" r="15" fill="#ff9f8a" stroke="#0a0a0a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="38" cy="62" r="6.5" fill="#ffe27a" stroke="#0a0a0a" stroke-width="3.5"/></svg><i class="mn n1">♪</i><i class="mn n2">♫</i><i class="mn n3">♪</i></span><span>Lyrio</span></a>
+    <circle cx="38" cy="62" r="15" fill="#ff9f8a" stroke="#0a0a0a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="38" cy="62" r="6.5" fill="#ffe27a" stroke="#0a0a0a" stroke-width="3.5"/></svg><i class="mn n1">♪</i><i class="mn n2">♫</i><i class="mn n3">♪</i></span><span>Lyrio</span><em class="beta" data-i18n="beta">free beta</em></a>
     <nav class="nav" aria-label="Main">
       <button data-tab="home" class="active" data-i18n="nav.home">Home</button>
       <button data-tab="song" data-i18n="nav.read">Reading</button>
@@ -48,13 +48,22 @@
       <div class="floaties" aria-hidden="true"><span>♪</span><span>♫</span><span>✦</span><span>♬</span><span>♪</span><span>✦</span><span>♫</span></div>
       <div class="hcopy">
         <p class="hand-kick"><span class="hk-note" aria-hidden="true">♪</span> <span data-i18n="home.kicker">Learn through music</span><svg class="hk-line" viewBox="0 0 120 10" aria-hidden="true"><path d="M2 6C20 1 36 9 58 4S96 8 118 3" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg></p>
-        <svg class="staff" viewBox="0 0 560 70" aria-hidden="true" focusable="false"><g filter="url(#rough)">
+        <div class="staff-wrap" aria-hidden="true"><span class="hero-bird"><svg class="bird bird-parrot" width="132" height="132" viewBox="0 0 100 100" role="img" aria-hidden="true">
+    <g fill="none" stroke-linecap="round"><path d="M24 70L8 86M28 74L16 94M32 76L26 98" stroke="#0a0a0a" stroke-width="13"/><path d="M24 70L8 86" stroke="#ff9f8a" stroke-width="7"/><path d="M28 74L16 94" stroke="#ffe27a" stroke-width="7"/><path d="M32 76L26 98" stroke="#7ee0c3" stroke-width="7"/></g>
+    
+    <path d="M30 28c-2-9 2-16 8-18 1 6 0 11-2 15M40 24c0-8 5-13 11-13-1 6-3 10-6 14" fill="#b9a6ff" stroke="#0a0a0a" stroke-width="4.5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="46" cy="58" r="32" fill="#b9a6ff" stroke="#0a0a0a" stroke-width="6" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M20 66c4 14 18 18 28 12" fill="none" stroke="#0a0a0a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M74 48l20 8-20 10z" fill="#ffe27a" stroke="#0a0a0a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+    <circle cx="58" cy="50" r="5" fill="#0a0a0a"/><circle cx="59.6" cy="48.4" r="1.6" fill="#fff"/>
+    <path d="M38 52C30 8 80 4 80 40" fill="none" stroke="#0a0a0a" stroke-width="11" stroke-linecap="round"/><path d="M38 52C30 8 80 4 80 40" fill="none" stroke="#ffe27a" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="38" cy="62" r="15" fill="#ff9f8a" stroke="#0a0a0a" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/><circle cx="38" cy="62" r="6.5" fill="#ffe27a" stroke="#0a0a0a" stroke-width="3.5"/></svg></span><svg class="staff" viewBox="0 0 560 70" aria-hidden="true" focusable="false"><g filter="url(#rough)">
           <g stroke="currentColor" stroke-width="1.4" opacity=".5" fill="none" stroke-linecap="round"><path d="M4 12h552M4 24h552M4 36h552M4 48h552M4 60h552"/></g>
-          <path d="M26 66c-9-10-14-26-4-40 8-12 18-8 16 4-2 10-14 12-16 24 0 10 10 10 14 4" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
+          
           <ellipse cx="300" cy="30" rx="15" ry="11" fill="#ffe36b" opacity=".85" transform="rotate(-8 300 30)"/>
           <g fill="currentColor"><ellipse cx="90" cy="48" rx="6.5" ry="4.6" transform="rotate(-22 90 48)"/><ellipse cx="150" cy="36" rx="6.5" ry="4.6" transform="rotate(-22 150 36)"/><ellipse cx="210" cy="24" rx="6.5" ry="4.6" transform="rotate(-22 210 24)"/><ellipse cx="300" cy="36" rx="6.5" ry="4.6" transform="rotate(-22 300 36)"/><ellipse cx="365" cy="18" rx="6.5" ry="4.6" transform="rotate(-22 365 18)"/><ellipse cx="430" cy="30" rx="6.5" ry="4.6" transform="rotate(-22 430 30)"/><ellipse cx="500" cy="42" rx="6.5" ry="4.6" transform="rotate(-22 500 42)"/></g>
           <g stroke="currentColor" stroke-width="2.2" stroke-linecap="round" fill="none"><path d="M96 46V16M156 34V4M216 22V-6M306 34V4M371 16V-14M436 28V-2M506 40V10"/><path d="M216 -6c8 2 12 6 10 14M156 4c8 2 12 6 10 14M506 10c8 2 12 6 10 14"/><path d="M371 -14L436 -2" stroke-width="4"/></g>
-        </g></svg>
+        </g></svg><i class="fly f1">♪</i><i class="fly f2">♫</i><i class="fly f3">♪</i><i class="fly f4">♬</i></div>
         <h1 class="display" data-i18n-html="home.title">Learn a language with your <em>favorite songs</em>.</h1>
         <p class="lead" data-i18n="home.lead">Import the lyrics, read them with their translation, pick the words to remember, and find each one again with the line it came from.</p>
         <div class="ctas">
@@ -83,6 +92,20 @@
         </div>
         <div class="d-caps"><span class="c1" data-i18n="demo.cap1">Click a word</span><span class="c2" data-i18n="demo.cap2">See its meaning</span><span class="c3" data-i18n="demo.cap3">Save it to your library</span></div>
       </div>
+      <div class="works" aria-label="Works with">
+        <span class="w-lab" data-i18n="works.lyrics">Lyrics from</span>
+        <a class="w-chip genius" href="https://genius.com" target="_blank" rel="noopener" title="Genius"><img src="genius-logo.svg" alt="Genius"></a>
+        <span class="w-sep" aria-hidden="true">♪</span>
+        <span class="w-lab" data-i18n="works.listen">Listen on</span>
+        <span class="w-chip" title="Spotify"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="12" fill="#1ed760"/><path d="M5.4 8.7c4.1-1.2 8.5-.9 12.2 1.1M6.2 12.2c3.5-1 7.1-.7 10.3.8M7 15.5c2.8-.8 5.4-.5 8 .6" fill="none" stroke="#0a0a0a" stroke-width="1.9" stroke-linecap="round"/></svg>Spotify</span>
+        <span class="w-chip" title="Apple Music"><svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="am" x1="0" y1="1" x2="1" y2="0"><stop offset="0" stop-color="#fa233b"/><stop offset="1" stop-color="#fb6a82"/></linearGradient></defs><rect width="24" height="24" rx="6" fill="url(#am)"/><path d="M9.2 17V8.4l7.6-1.9v8.6" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><circle cx="7.6" cy="17.2" r="2" fill="#fff"/><circle cx="15.2" cy="15.2" r="2" fill="#fff"/></svg>Apple Music</span>
+        <span class="w-chip" title="Deezer"><svg viewBox="0 0 24 24" aria-hidden="true"><g><rect x="1" y="16" width="4" height="3" rx=".6" fill="#2fc1ff"/><rect x="6.2" y="16" width="4" height="3" rx=".6" fill="#2fc1ff"/><rect x="11.4" y="16" width="4" height="3" rx=".6" fill="#7ed321"/><rect x="16.6" y="16" width="4" height="3" rx=".6" fill="#ee5ea2"/><rect x="11.4" y="11.6" width="4" height="3" rx=".6" fill="#ffd200"/><rect x="16.6" y="11.6" width="4" height="3" rx=".6" fill="#ff9a1f"/><rect x="16.6" y="7.2" width="4" height="3" rx=".6" fill="#f2543d"/><rect x="1" y="11.6" width="4" height="3" rx=".6" fill="#2fc1ff" opacity=".0"/></g></svg>Deezer</span>
+        <span class="w-chip" title="YouTube"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="0" y="4" width="24" height="16" rx="5" fill="#ff0000"/><path d="M10 8.6v6.8l6-3.4z" fill="#fff"/></svg>YouTube</span>
+      </div>
+    </section>
+    <section class="hblock">
+      <div class="label" data-i18n="how.title">How it works</div>
+      <div id="how"></div>
     </section>
     <section id="start" class="start" hidden></section>
     <section id="birdCard" class="birdcard" aria-label="Your bird"></section>
@@ -90,10 +113,6 @@
     <section class="hblock">
       <div class="label" data-i18n="home.songs">My songs</div>
       <div id="homeSongs" class="cards"></div>
-    </section>
-    <section class="hblock">
-      <div class="label" data-i18n="home.how">How it works</div>
-      <div id="how"></div>
     </section>
   </main>
 
@@ -153,6 +172,7 @@
   <main id="libraryTab" class="library" hidden>
     <div class="label" data-i18n="lib.kicker">Library</div>
     <h1 class="display" data-i18n="lib.title">Your words.</h1>
+    <div id="playCta" class="play-cta" hidden></div>
     <div class="lib-tools">
       <input id="libSearch" type="search" placeholder="Search a word, a translation, a song…" data-i18n-ph="lib.search">
       <button id="export" class="btn" type="button" data-i18n="lib.export">Export CSV (Anki)</button>
@@ -188,6 +208,10 @@
     <ul id="songList" class="songs"></ul>
   </dialog>
 
+  <dialog id="playDlg" class="study play" aria-label="Game">
+    <div class="st-top"><b id="pgTitle"></b><div class="progress"><div id="pgBar"></div></div><span id="pgStreak" class="pg-streak"></span><button class="x" id="pgClose" type="button" aria-label="Close">✕</button></div>
+    <div id="pgBody" class="pg-body"></div>
+  </dialog>
   <dialog id="studyDlg" class="study" aria-label="Study mode">
     <div class="st-top"><b id="stCount"></b><div class="progress"><div id="stBar"></div></div><button class="x" id="stClose" type="button" aria-label="Close">✕</button></div>
     <div id="stMain">

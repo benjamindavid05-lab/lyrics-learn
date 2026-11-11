@@ -1,6 +1,7 @@
 import { t, getLang, setLang, applyStatic } from './i18n.js';
 import { parseEmbedCode, embedSrcdoc, cleanEmbedText } from './embed.js';
 import { initDemo } from './demo.js';
+import { pickWords, makeChoice, checkTyped, review, masteredCount, usable, XP_PER_OK, XP_PERFECT } from './game.js';
 import { birdSvg, birdXp, birdLevel, BIRD_STAGES } from './bird.js';
 import { alignLines, locate, canSync, attachPlayer, attachSpotify } from './sync.js';
 import { normLang, guessScript, flagOf, langName } from './langs.js';
@@ -287,6 +288,7 @@ function renderBird() {
       <div class="bc-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(lv.progress * 100)}"><i style="width:${Math.round(lv.progress * 100)}%"></i></div>
       <p class="bc-next">${lv.next != null ? esc(t('bird.next', { name: birdName(lv.next), n: lv.need })) : esc(t('bird.max'))}</p>
       <div class="bc-stages">${stages}</div>
+      ${state.library.length ? `<button type="button" class="btn solid sm play-open">🎮 ${esc(t('play.evolve'))}</button>` : ''}
       <small class="bc-how">${esc(t('bird.how'))}</small>
     </div>`;
 }
@@ -770,6 +772,128 @@ document.addEventListener('keydown', (e) => {
   else if (e.code === 'ArrowRight') { e.preventDefault(); studyStep(1); } else if (e.code === 'ArrowLeft') { e.preventDefault(); studyStep(-1); }
 });
 
+// ---------- « Se tester » : le jeu à partir de la bibliothèque ----------
+const play = { mode: '', qs: [], i: 0, score: 0, streak: 0, best: 0, wrong: [], phase: 'menu', xpGained: 0, q: null, answered: false };
+function renderPlayCta() {
+  const el = $('#playCta'); if (!el) return;
+  const n = usable(state.library).length, m = masteredCount(state.library);
+  el.hidden = !state.library.length;
+  if (!state.library.length) return;
+  el.innerHTML = `<div class="pc-art">${birdSvg(birdLevel(birdXp(state)).stage, 76)}</div>
+    <div class="pc-txt"><b>${esc(t('play.ctaTitle'))}</b><span>${esc(t('play.ctaSub', { n, m }))}</span></div>
+    <button type="button" class="btn solid ticket play-open">🎮 ${esc(t('play.btn'))}</button>`;
+}
+function playOpen() {
+  Object.assign(play, { mode: '', qs: [], i: 0, score: 0, streak: 0, best: 0, wrong: [], phase: 'menu', xpGained: 0, q: null, answered: false });
+  $('#playDlg').showModal(); playRender();
+}
+function playClose() { if ($('#playDlg').open) $('#playDlg').close(); }
+function playStart(mode) {
+  const words = pickWords(state.library, 10);
+  if (!words.length) return;
+  play.mode = mode; play.qs = words; play.i = 0; play.score = 0; play.streak = 0; play.best = 0; play.wrong = []; play.xpGained = 0; play.phase = 'q';
+  playNext(0);
+}
+function playNext(d = 1) {
+  play.i += d; play.answered = false; play.pick = null; play.flip = false; play.typed = ''; play.lastOk = false;
+  if (play.i >= play.qs.length) return playEnd();
+  const w = play.qs[play.i];
+  play.q = null;
+  if (play.mode === 'quiz') { play.q = makeChoice(w, state.library); if (!play.q) play.q = { fallback: true }; }
+  play.phase = 'q'; playRender();
+}
+function playAnswer(ok, w) {
+  if (play.answered) return; play.answered = true;
+  review(w, ok);
+  if (ok) { play.score++; play.streak++; play.best = Math.max(play.best, play.streak); state.quizXp = (state.quizXp || 0) + XP_PER_OK; play.xpGained += XP_PER_OK; }
+  else { play.streak = 0; play.wrong.push(w); }
+  save(); playRender(true);
+  if (ok) setTimeout(() => { if ($('#playDlg').open && play.phase === 'q' && play.qs[play.i] === w) playNext(); }, play.mode === 'flash' ? 0 : 1300);
+}
+function playEnd() {
+  play.phase = 'end';
+  if (play.qs.length >= 8 && play.score === play.qs.length) { state.quizXp = (state.quizXp || 0) + XP_PERFECT; play.xpGained += XP_PERFECT; }
+  save(); playRender(); render(); renderPlayCta();
+}
+function playRender(feedback) {
+  const body = $('#pgBody'); if (!body) return;
+  const n = play.qs.length, lib = usable(state.library);
+  $('#pgTitle').textContent = play.phase === 'menu' ? t('play.title') : play.phase === 'end' ? '🎉' : t('play.count', { k: Math.min(play.i + 1, n), n });
+  $('#pgBar').style.width = play.phase === 'menu' ? '0' : `${Math.min(100, ((play.phase === 'end' ? n : play.i + (play.answered ? 1 : 0)) / Math.max(1, n)) * 100)}%`;
+  $('#pgStreak').textContent = play.streak >= 2 ? `🔥 ${play.streak}` : '';
+  const stage = birdLevel(birdXp(state)).stage;
+  if (play.phase === 'menu') {
+    const quizOk = lib.length >= 4 && new Set(lib.map((e) => e.tr.toLowerCase())).size >= 4;
+    body.innerHTML = `<div class="pg-menu"><div class="pg-bird">${birdSvg(stage, 96)}</div><h2>${esc(t('play.title'))}</h2>
+      <p>${esc(t('play.pool', { n: lib.length, m: masteredCount(state.library) }))}</p>
+      <div class="pg-modes">
+        <button type="button" data-mode="quiz" ${quizOk ? '' : 'disabled'}><span>🎯</span><b>${esc(t('play.quiz'))}</b><small>${esc(quizOk ? t('play.quizD') : t('play.need4'))}</small></button>
+        <button type="button" data-mode="flash"><span>🃏</span><b>${esc(t('play.flash'))}</b><small>${esc(t('play.flashD'))}</small></button>
+        <button type="button" data-mode="write"><span>✍️</span><b>${esc(t('play.write'))}</b><small>${esc(t('play.writeD'))}</small></button>
+      </div><small class="pg-xp">${esc(t('play.xp', { a: XP_PER_OK, b: XP_PERFECT }))}</small></div>`;
+    return;
+  }
+  if (play.phase === 'end') {
+    const ratio = n ? play.score / n : 0, msg = ratio === 1 ? t('play.perfect') : ratio >= 0.7 ? t('play.good') : ratio >= 0.4 ? t('play.ok') : t('play.again');
+    body.innerHTML = `<div class="pg-end">${ratio >= 0.8 ? '<div class="pg-conf" aria-hidden="true">🎉✨🎶⭐🎉✨🎶⭐</div>' : ''}<div class="pg-bird big">${birdSvg(stage, 120)}</div>
+      <div class="pg-score"><b>${play.score}</b><span>/ ${n}</span></div><h2>${esc(msg)}</h2>
+      <p>${esc(t('play.gained', { xp: play.xpGained, s: play.best }))}</p>
+      ${play.wrong.length ? `<div class="pg-wrong"><small>${esc(t('play.review'))}</small>${play.wrong.map((w) => `<span class="chip"><b>${esc(w.text)}</b> ${esc(w.tr)}</span>`).join('')}</div>` : ''}
+      <div class="pg-acts"><button type="button" class="btn solid" data-mode="${play.mode}">↺ ${esc(t('play.replay'))}</button><button type="button" class="btn" data-pg="menu">${esc(t('play.change'))}</button><button type="button" class="btn" data-pg="close">${esc(t('study.close'))}</button></div></div>`;
+    return;
+  }
+  const w = play.qs[play.i];
+  const ctx = w.sentence ? `<div class="pg-ctx" dir="auto">“${esc(w.sentence)}”</div>` : '';
+  if (play.mode === 'quiz' && play.q && !play.q.fallback) {
+    const q = play.q;
+    body.innerHTML = `<div class="pg-q"><small>${esc(t(q.rev ? 'play.whichWord' : 'play.whatMeans'))}</small><div class="pg-word" dir="auto">${esc(q.prompt)}</div>${q.rev ? '' : ctx}
+      <div class="pg-choices">${q.choices.map((c, k) => `<button type="button" data-c="${k}" class="${play.answered ? (k === q.correct ? 'right' : (play.pick === k ? 'wrong' : 'dim')) : ''}" ${play.answered ? 'disabled' : ''} dir="auto">${esc(c)}</button>`).join('')}</div>
+      <div class="pg-fb ${play.answered ? (play.pick === q.correct ? 'ok' : 'ko') : ''}">${play.answered ? (play.pick === q.correct ? '✓ ' + esc(t('play.right')) : '✗ ' + esc(t('play.wrongIs', { a: q.answer }))) : ''}</div>
+      ${play.answered && play.pick !== q.correct ? `<button type="button" class="btn solid" data-pg="next">${esc(t('study.next'))} ▶</button>` : ''}</div>`;
+    return;
+  }
+  if (play.mode === 'write') {
+    body.innerHTML = `<div class="pg-q"><small>${esc(t('play.typeMeaning'))}</small><div class="pg-word" dir="auto">${esc(w.text)}</div>${ctx}
+      <form id="pgForm" class="pg-form"><input id="pgInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(t('play.typePh'))}" ${play.answered ? 'disabled' : ''} value="${esc(play.typed || '')}"><button class="btn solid" ${play.answered ? 'disabled' : ''}>${esc(t('play.check'))}</button></form>
+      <div class="pg-fb ${play.answered ? (play.lastOk ? 'ok' : 'ko') : ''}">${play.answered ? (play.lastOk ? '✓ ' + esc(t('play.right')) + ' — ' + esc(w.tr) : '✗ ' + esc(t('play.wrongIs', { a: w.tr }))) : ''}</div>
+      ${play.answered && !play.lastOk ? `<button type="button" class="btn solid" data-pg="next">${esc(t('study.next'))} ▶</button>` : ''}</div>`;
+    const inp = $('#pgInput'); if (inp && !play.answered) inp.focus();
+    return;
+  }
+  // cartes (et repli du quiz si pas assez de mots)
+  const flipped = !!play.flip;
+  body.innerHTML = `<div class="pg-q"><small>${esc(t('play.flipHint'))}</small>
+    <button type="button" class="pg-card${flipped ? ' flip' : ''}" data-pg="flip"><span class="front" dir="auto">${esc(w.text)}</span><span class="back" dir="auto">${esc(w.tr)}</span></button>${ctx}
+    <div class="pg-acts">${flipped ? `<button type="button" class="btn" data-pg="no">😕 ${esc(t('play.toReview'))}</button><button type="button" class="btn solid" data-pg="yes">😎 ${esc(t('play.knew'))}</button>` : `<button type="button" class="btn solid" data-pg="flip">${esc(t('play.reveal'))}</button>`}</div></div>`;
+}
+$('#pgBody').addEventListener('click', (e) => {
+  const m = e.target.closest('[data-mode]'); if (m && !m.disabled) { play.flip = false; return playStart(m.dataset.mode); }
+  const w = play.qs[play.i];
+  const c = e.target.closest('[data-c]');
+  if (c && play.q && !play.answered) { play.pick = Number(c.dataset.c); return playAnswer(play.pick === play.q.correct, w); }
+  const g = e.target.closest('[data-pg]'); if (!g) return;
+  const k = g.dataset.pg;
+  if (k === 'menu') { play.phase = 'menu'; return playRender(); }
+  if (k === 'close') return playClose();
+  if (k === 'next') return playNext();
+  if (k === 'flip') { play.flip = !play.flip; return playRender(); }
+  if (k === 'yes' || k === 'no') { play.flip = false; return playAnswer(k === 'yes', w); }
+});
+$('#pgBody').addEventListener('submit', (e) => {
+  if (e.target.id !== 'pgForm') return; e.preventDefault();
+  const w = play.qs[play.i]; if (play.answered) return;
+  play.typed = $('#pgInput').value; play.lastOk = checkTyped(play.typed, w.tr);
+  playAnswer(play.lastOk, w); play.typed = '';
+});
+$('#pgClose').onclick = playClose;
+document.addEventListener('click', (e) => { if (e.target.closest('.play-open')) playOpen(); });
+document.addEventListener('keydown', (e) => {
+  if (!$('#playDlg').open) return;
+  if (play.phase === 'q' && play.mode === 'flash' && e.code === 'Space') { e.preventDefault(); play.flip = !play.flip; playRender(); }
+  else if (play.phase === 'q' && (e.code === 'Enter') && play.answered && !(play.mode === 'quiz' ? play.pick === play.q.correct : play.lastOk)) { if (!/^(INPUT)$/.test(document.activeElement.tagName)) playNext(); }
+  else if (play.phase === 'q' && play.mode === 'quiz' && !play.answered && /^[1-4]$/.test(e.key)) { const k = Number(e.key) - 1; if (play.q && play.q.choices[k] != null) { play.pick = k; playAnswer(k === play.q.correct, play.qs[play.i]); } }
+});
+
 let frameKey = '', formKey = '', playerEditing = false;
 const frameHeight = (p) => (/open\.spotify\.com\/embed\/track\//.test(p.src) ? 80 : p.h);
 function renderPlayer() {
@@ -1067,6 +1191,7 @@ function renderLibrary() {
   $('#libCount').textContent = state.library.length;
   migrateLibrary();
   backfillLibrary();
+  renderPlayCta();
   const q = norm($('#libSearch').value || '');
   const count = {};
   for (const e of state.library) count[e.src || ''] = (count[e.src || ''] || 0) + 1;
@@ -1081,7 +1206,7 @@ function renderLibrary() {
   const row = (e) => `<li data-id="${e.id}">
     <span class="e"><bdi>${esc(e.text)}</bdi></span>
     <span class="m">${e.tr ? esc(e.tr) : '<span class="muted">…</span>'}<div class="s">${e.lang ? `${flagOf(e.lang)} ${esc(langName(e.lang, ui()))} · ` : ''}${esc(e.title)}${e.artist ? ' · ' + esc(e.artist) : ''} · ${new Date(e.date).toLocaleDateString()}</div></span>
-    <button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`;
+    <span class="mst" title="${esc(t('play.mastery'))}" aria-hidden="true">${'●'.repeat(Math.min(4, e.box || 0))}${'○'.repeat(4 - Math.min(4, e.box || 0))}</span><button data-del="${e.id}" title="${t('common.delete')}">✕</button></li>`;
   $('#libEmpty').hidden = state.library.length > 0;
   $('#libEmpty').innerHTML = libEmptyHtml(t);
   // « Toutes » : regroupé par langue, avec le drapeau en en-tête ; sinon la langue choisie seulement
