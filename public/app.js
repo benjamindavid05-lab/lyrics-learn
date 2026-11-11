@@ -447,12 +447,13 @@ async function loadMedia(s) {
         const { tracks } = await api(`/api/find-track?title=${encodeURIComponent(s.title)}&artist=${encodeURIComponent(s.artist || '')}`);
         for (const k of ['spotify', 'apple', 'deezer', 'youtube']) if (tracks?.[k]) setPlayer(s, tracks[k]);
         s.ytAlts = Array.isArray(tracks?.youtubeAlts) ? tracks.youtubeAlts : [];
+        s.ytSecs = tracks?.youtubeSecs || {};
       } catch { /* pas bloquant */ }
     }
     pickPlayer(s);
-  } finally { s.finding = false; s.mediaLoaded = true; s.mediaV = 2; save(); renderIfCurrent(s); renderSyncBar(s); }
+  } finally { s.finding = false; s.mediaLoaded = true; s.mediaV = 3; save(); chooseVideo(s); renderIfCurrent(s); renderSyncBar(s); }
 }
-const ensureMedia = (s) => { if (s && (!s.mediaLoaded || s.mediaV !== 2) && !s.finding) loadMedia(s); };
+const ensureMedia = (s) => { if (s && (!s.mediaLoaded || s.mediaV !== 3) && !s.finding) loadMedia(s); };
 
 // ---------- surlignage synchronisé avec la musique (mot à mot) ----------
 let syncStop = null, syncPos = 0, syncAt = 0, syncPlaying = false, syncRaf = 0, syncIdx = -1, syncEl = null, syncWord = -2, syncWords = null;
@@ -462,10 +463,31 @@ function clearPlaying() {
   if (syncEl) { syncEl.classList.remove('playing'); syncEl.querySelectorAll('.w.sung,.w.now').forEach((w) => { w.classList.remove('sung', 'now'); w.style.removeProperty('--wp'); }); }
   syncEl = null; syncIdx = -1; syncWord = -2; syncWords = null;
 }
+// Le minutage ne vaut que pour UN montage du morceau. On choisit la vidéo dont la durée correspond à une version du minutage
+// (idéalement mot à mot) : c'est ce qui garantit que les paroles tombent au bon endroit.
+function chooseVideo(s) {
+  if (!s || !s.sync || !s.sync.versions || !s.sync.versions.length || !s.ytSecs) return;
+  const urls = [s.players.youtube && s.players.youtube.url, ...(s.ytAlts || [])].filter(Boolean).filter((u, i, a) => a.indexOf(u) === i && s.ytSecs[u] && !(s.ytBad || []).includes(u));
+  let best = null;
+  for (const u of urls) for (const v of s.sync.versions) {
+    const delta = Math.abs(s.ytSecs[u] - v.d);
+    if (delta > 2.5) continue;
+    const cost = delta - (v.ws ? 1.2 : 0);
+    if (!best || cost < best.cost) best = { u, v, cost, delta };
+  }
+  if (!best) { s.syncMatch = false; return; }
+  s.syncMatch = true;
+  const cur = s.players.youtube && s.players.youtube.url;
+  if (best.u !== cur) { setPlayer(s, best.u, true); if (s.playerPref === 'youtube') renderIfCurrent(s); }
+  if (!s.sync.dur || Math.abs(s.sync.dur - best.v.d) > 0.15) { s.syncD = best.v.d; s.sync = undefined; ensureSync(s); }
+  save();
+}
 // Vidéo YouTube injouable ici (région, intégration refusée, supprimée) : on passe automatiquement à la suivante
 function youtubeFailed() {
   const s = song(); if (!s || !s.players.youtube) return;
-  const bad = (s.ytBad = s.ytBad || []); bad.push(s.players.youtube.url);
+  const bad = (s.ytBad = s.ytBad || []); const cur = s.players.youtube.url; bad.push(cur);
+  chooseVideo(s); // d'abord une vidéo restante dont la durée correspond au minutage
+  if (s.players.youtube.url !== cur) { save(); renderPlayer(); return; }
   const alt = (s.ytAlts || []).find((u) => !bad.includes(u));
   if (alt) { setPlayer(s, alt, true); save(); renderPlayer(); }
   else { s.ytDead = true; save(); renderSyncBar(s); }
@@ -481,6 +503,9 @@ function onTick(pos, playing, dur) {
   if (!playerSeen || prev !== playerPreview) { playerSeen = true; playerPreview = prev; if (s0) renderSyncBar(s0); }
   feed(pos, playing, dur);
 }
+const offKey = (s) => { const p = s.players && s.players[s.playerPref]; return p ? p.src : ''; };
+const getOff = (s) => { const o = (s.syncOffs || {})[offKey(s)]; return o != null ? o : 0; };
+const setOff = (s, v) => { s.syncOffs = s.syncOffs || {}; s.syncOffs[offKey(s)] = Math.round(v * 10) / 10; };
 let syncCorr = 0, syncCorrAt = 0;
 function feed(pos, playing, dur) {
   // lissage : un petit écart entre l'horloge interne et la position annoncée est résorbé en 0,4 s au lieu de provoquer un saut
@@ -489,9 +514,10 @@ function feed(pos, playing, dur) {
   syncPos = pos; syncAt = performance.now(); syncPlaying = playing;
   const s = song();
   // la version du minutage doit avoir la même durée que le morceau joué : sinon on en cherche une autre
+  if (s && dur > 30 && s.sync && s.sync.v === 2 && s.sync.playerDur !== dur && !(playerPreview)) { s.sync.playerDur = dur; renderSyncBar(s); }
   if (s && dur > 30 && s.sync && s.sync.v === 2 && !s.sync.durChecked) {
     s.sync.durChecked = true;
-    if (s.sync.dur && Math.abs(s.sync.dur - dur) > 2.5) { s.syncD = Math.round(dur); s.sync = undefined; ensureSync(s); }
+    if (s.sync.dur && Math.abs(s.sync.dur - dur) > 2.5) { s.syncD = Math.round(dur); s.sync = undefined; ensureSync(s).then(() => { if (s.sync && s.sync.v === 2) s.sync.playerDur = dur; }); }
   }
   if (playing && !syncRaf) syncRaf = requestAnimationFrame(syncFrame);
   else if (!playing) syncFrame(); // pause ou déplacement du curseur : on met à jour une fois
@@ -500,13 +526,15 @@ const currentPos = () => syncPos + (syncPlaying ? (performance.now() - syncAt) /
 function syncFrame() {
   syncRaf = 0;
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
-  let loc; try { loc = locate(s.sync, currentPos() + (s.syncOff || 0)); } catch { return; }
+  let loc; try { loc = locate(s.sync, currentPos() + getOff(s)); } catch { return; }
   if (loc.i !== syncIdx || !syncEl || !syncEl.isConnected) {
     clearPlaying(); syncIdx = loc.i;
     syncEl = loc.i >= 0 ? document.querySelector(`#lyrics .ln[data-i="${loc.i}"]`) : null;
     if (syncEl) { syncEl.classList.add('playing'); syncWords = syncEl.querySelectorAll('.w'); if (follow && syncPlaying) syncEl.scrollIntoView({ block: 'center', behavior: 'smooth' }); }
   }
-  if (syncEl && syncWords) {
+  const exactLine = loc.i >= 0 && s.sync.exact && s.sync.exact[loc.i];
+  if (syncEl) { syncEl.classList.toggle('approx', !exactLine); if (!exactLine) syncEl.style.setProperty('--lp', `${Math.round(loc.line * 100)}%`); }
+  if (syncEl && syncWords && exactLine) {
     if (loc.k !== syncWord) {
       syncWords.forEach((w, m) => { w.classList.toggle('sung', m < loc.k); w.classList.toggle('now', m === loc.k); if (m !== loc.k) w.style.removeProperty('--wp'); });
       syncWord = loc.k;
@@ -527,10 +555,10 @@ async function ensureSync(s) {
     const n = texts.filter((x) => x != null).length;
     const al = r.lines && r.lines.length ? alignLines(texts, r.lines) : null;
     s.sync = al && al.matched >= Math.max(3, n * 0.3)
-      ? { v: 2, times: al.times, ends: al.ends, words: al.words, exact: al.exact, exactLines: al.exactLines, total: al.matched, dur: r.duration || 0, wordSync: !!r.wordSync, durChecked: !!s.syncD }
+      ? { v: 2, versions: r.versions || [], times: al.times, ends: al.ends, words: al.words, exact: al.exact, exactLines: al.exactLines, total: al.matched, dur: r.duration || 0, wordSync: !!r.wordSync, durChecked: !!s.syncD }
       : { none: true, at: Date.now() };
   } catch { s.sync = { none: true, at: Date.now() }; }
-  finally { s.syncing = false; save(); if (state.current === s.id) renderSyncBar(s); }
+  finally { s.syncing = false; save(); chooseVideo(s); if (state.current === s.id) renderSyncBar(s); }
 }
 function renderSyncBar(s, p) {
   const bar = $('#syncBar'); if (!bar) return;
@@ -551,9 +579,12 @@ function renderSyncBar(s, p) {
     const manual = mine
       ? `<button type="button" class="btn sm" data-man="toggle">${syncPlaying ? '⏸ ' + esc(t('sync.pause')) : '▶ ' + esc(t('sync.resume'))}</button> <button type="button" class="link" data-man="restart">↺ ${esc(t('sync.restart'))}</button> <button type="button" class="link" data-man="off">✕ ${esc(t('sync.auto'))}</button>`
       : `<button type="button" class="btn sm${!canSync(p.provider) || !playerSeen ? ' solid' : ''}" data-man="on" title="${esc(t('sync.manualTip'))}">▶ ${esc(t('sync.manual'))}</button>`;
-    html = `<span class="syncon"><b>♪</b> ${esc(mode)}</span>${link}<span class="syncman">${manual}</span>
+    const pd = s.sync.playerDur, mm = pd && s.sync.dur ? Math.abs(pd - s.sync.dur) : null;
+    const fit = mm == null ? '' : mm <= 2.5 ? `<span class="syncst"><b class="dot ok"></b>${esc(t('sync.match'))}</span>`
+      : `<span class="syncst warn"><b class="dot wait"></b>${esc(t('sync.mismatch', { a: Math.round(pd), b: Math.round(s.sync.dur) }))}${(s.ytAlts || []).some((u) => !(s.ytBad || []).includes(u)) ? ` <button type="button" class="btn sm solid" data-nextvid="1">${esc(t('sync.nextVideo'))}</button>` : ''}</span>`;
+    html = `<span class="syncon"><b>♪</b> ${esc(mode)}</span>${fit}${link}<span class="syncman">${manual}</span>
     <span class="syncoff"><button type="button" class="link" data-align="1" title="${esc(t('sync.alignTip'))}">${esc(t('sync.align'))}</button>
-      <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${(s.syncOff || 0) > 0 ? '+' : ''}${(s.syncOff || 0).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
+      <button type="button" class="link" data-off="-0.2" aria-label="${esc(t('sync.earlier'))}">−0.2 s</button><em>${getOff(s) > 0 ? '+' : ''}${getOff(s).toFixed(1)} s</em><button type="button" class="link" data-off="0.2" aria-label="${esc(t('sync.later'))}">+0.2 s</button></span>`;
   }
   bar.innerHTML = html; bar.hidden = false;
   $('#followWrap').hidden = !ready;
@@ -561,6 +592,13 @@ function renderSyncBar(s, p) {
 }
 $('#syncBar').addEventListener('click', (e) => {
   const s = song(); if (!s || !s.sync || !s.sync.times || s.sync.v !== 2) return;
+  if (e.target.closest('[data-nextvid]')) {
+    const bad = (s.ytBad = s.ytBad || []); if (s.players.youtube) bad.push(s.players.youtube.url);
+    const vs = (s.sync.versions || []).map((v) => v.d);
+    const alt = (s.ytAlts || []).filter((u) => !bad.includes(u)).sort((a, b) => Math.min(...vs.map((d) => Math.abs((s.ytSecs[a] || 0) - d))) - Math.min(...vs.map((d) => Math.abs((s.ytSecs[b] || 0) - d))))[0];
+    if (alt) { setPlayer(s, alt, true); s.playerPref = pref = 'youtube'; s.sync.playerDur = 0; s.sync.durChecked = false; save(); renderPlayer(); }
+    return;
+  }
   const sw = e.target.closest('[data-switch]');
   if (sw && s.players[sw.dataset.switch]) { s.playerPref = pref = sw.dataset.switch; try { localStorage.setItem('ll_pp', pref); } catch {} save(); renderPlayer(); return; }
   const man = e.target.closest('[data-man]');
@@ -577,11 +615,11 @@ $('#syncBar').addEventListener('click', (e) => {
     // « Cette ligne est chantée maintenant » : on aligne le minutage sur la ligne sélectionnée (clic sur un mot de cette ligne)
     const i = activeLine != null && s.sync.times[activeLine] != null ? activeLine : (syncIdx >= 0 ? syncIdx : -1);
     if (i < 0) return setStatus(t('sync.alignNone'), true);
-    s.syncOff = Math.round((s.sync.times[i] - currentPos()) * 10) / 10;
+    setOff(s, s.sync.times[i] - currentPos());
     save(); renderSyncBar(s); if (!syncPlaying) syncFrame(); return;
   }
   const b = e.target.closest('[data-off]'); if (!b) return;
-  s.syncOff = Math.round(((s.syncOff || 0) + Number(b.dataset.off)) * 10) / 10; save(); renderSyncBar(s);
+  setOff(s, getOff(s) + Number(b.dataset.off)); save(); renderSyncBar(s);
   if (!syncPlaying) syncFrame();
 });
 $('#follow').onchange = () => { follow = $('#follow').checked; try { localStorage.setItem('ll_follow', follow ? '1' : '0'); } catch {} };

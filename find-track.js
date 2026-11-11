@@ -107,10 +107,14 @@ async function spotify(wt, wa) {
 const BAD = /\b(live|cover|karaoke|acoustic|session|remix|reaction|instrumental|slowed|sped|nightcore|8d|tutorial|lesson|piano|guitar|fernsehgarten|translation|traduction|subtitulado)\b/i;
 export function parseYoutubeResults(html) {
   const out = [];
-  for (const m of String(html).matchAll(/"videoRenderer":\{"videoId":"([A-Za-z0-9_-]{11})".*?"title":\{"runs":\[\{"text":"(.*?)"\}\].*?"ownerText":\{"runs":\[\{"text":"(.*?)"/g)) {
-    const un = (x) => x.replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\u([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
-    out.push({ id: m[1], title: un(m[2]), channel: un(m[3]) });
-    if (out.length >= 12) break;
+  const un = (x) => x.replace(/\\u0026/g, '&').replace(/\\"/g, '"').replace(/\\u([0-9a-f]{4})/gi, (_, h) => String.fromCharCode(parseInt(h, 16)));
+  for (const c of String(html).split('"videoRenderer":{"videoId":"').slice(1)) {
+    const id = c.slice(0, 11);
+    const t = c.match(/"title":\{"runs":\[\{"text":"(.*?)"\}/), o = c.match(/"ownerText":\{"runs":\[\{"text":"(.*?)"/), l = c.match(/"lengthText":\{.{0,240}?"simpleText":"([0-9:]+)"/);
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id) || !t) continue;
+    const secs = l ? l[1].split(':').reduce((acc, x) => acc * 60 + Number(x), 0) : 0; // durée affichée (mm:ss ou h:mm:ss)
+    out.push({ id, title: un(t[1]), channel: o ? un(o[1]) : '', secs });
+    if (out.length >= 14) break;
   }
   return out;
 }
@@ -118,7 +122,7 @@ async function youtubeScrape(wt, wa) {
   const r = await fetch('https://www.youtube.com/results?search_query=' + q(`${wa[0] || ''} ${wt[0]} official video`.trim()), {
     headers: { 'user-agent': 'Mozilla/5.0 (compatible; LyricsLearn/1.0)', 'accept-language': 'en', cookie: 'CONSENT=YES+1' }, signal: AbortSignal.timeout(9000)
   });
-  if (!r.ok) return '';
+  if (!r.ok) return [];
   const cands = parseYoutubeResults(await r.text()).map((c) => {
     let sc = 0;
     if (!wt.some((w) => sim(c.title, w) >= 0.4 || norm(c.title).includes(norm(w)))) return { ...c, sc: -1 };
@@ -128,11 +132,11 @@ async function youtubeScrape(wt, wa) {
     if (/official/i.test(c.title)) sc += 2; if (/lyric|audio/i.test(c.title)) sc += 1;
     return { ...c, sc };
   }).filter((c) => c.sc >= 2).sort((a, b) => b.sc - a.sc);
-  const found = [];
-  for (const c of cands.slice(0, 6)) {
+  const found = []; found.secs = {}; // durée de chaque vidéo : sert à choisir celle dont le montage correspond au minutage des paroles
+  for (const c of cands.slice(0, 8)) {
     // oEmbed refuse (401) les vidéos dont l'intégration est interdite
-    try { const o = await fetch('https://www.youtube.com/oembed?format=json&url=' + q('https://www.youtube.com/watch?v=' + c.id), { signal: AbortSignal.timeout(6000) }); if (o.ok) found.push(`https://www.youtube.com/watch?v=${c.id}`); } catch { /* suivant */ }
-    if (found.length >= 4) break;
+    try { const o = await fetch('https://www.youtube.com/oembed?format=json&url=' + q('https://www.youtube.com/watch?v=' + c.id), { signal: AbortSignal.timeout(6000) }); if (o.ok) { const u = `https://www.youtube.com/watch?v=${c.id}`; found.push(u); found.secs[u] = c.secs; } } catch { /* suivant */ }
+    if (found.length >= 6) break;
   }
   return found;
 }
@@ -157,7 +161,7 @@ export async function findTracks({ title, artist }) {
   if (!wt.length) return { deezer: '', apple: '', spotify: '', youtube: '', youtubeAlts: [] };
   const [dz, ap, sp, yt] = await Promise.allSettled([deezer(wt, wa), apple(wt, wa), spotify(wt, wa), youtube(wt, wa)]);
   const yts = yt.status === 'fulfilled' && Array.isArray(yt.value) ? yt.value : [];
-  return { deezer: ok(dz), apple: ok(ap), spotify: ok(sp), youtube: yts[0] || '', youtubeAlts: yts.slice(1) };
+  return { deezer: ok(dz), apple: ok(ap), spotify: ok(sp), youtube: yts[0] || '', youtubeAlts: yts.slice(1), youtubeSecs: yts.secs || {} };
 }
 
 // Vérifie que les identifiants Spotify fonctionnent (sans jamais les afficher).

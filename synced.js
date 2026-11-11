@@ -55,11 +55,12 @@ export async function findSynced({ title, artist, duration = 0 }) {
   if (!res.ok) throw new Error(`Synced lyrics unavailable (${res.status})`);
   const list = (await res.json()).filter((x) => x && x.syncedLyrics);
   const nt = norm(title), na = norm(artist);
-  let best = null, bestScore = -1;
+  let best = null, bestScore = -1; const versions = [];
   for (const x of list) {
     let sc = 0;
     if (norm(x.trackName) === nt) sc += 4; else if (norm(x.trackName).includes(nt) || nt.includes(norm(x.trackName))) sc += 2;
     if (na && (norm(x.artistName).includes(na) || na.includes(norm(x.artistName)))) sc += 3;
+    if (sc >= 5 && x.duration) versions.push({ d: Math.round(x.duration * 10) / 10, ws: !!(x.hasWordSync && x.lyricsfile) }); // versions du même morceau (durées connues)
     if (duration && x.duration) sc += Math.max(0, 3 - Math.abs(x.duration - duration) / 4);
     if (sc > bestScore) { best = x; bestScore = sc; }
   }
@@ -73,7 +74,7 @@ export async function findSynced({ title, artist, duration = 0 }) {
     }
     if (!wordSync) lines = parseLrc(best.syncedLyrics);
   }
-  const v = { lines, duration: best?.duration || 0, wordSync };
+  const v = { lines, duration: best?.duration || 0, wordSync, versions: [...new Map(versions.map((x) => [`${x.d}|${x.ws}`, x])).values()].sort((a, b) => a.d - b.d).slice(0, 30) };
   if (cache.size > 300) cache.clear();
   cache.set(key, { at: Date.now(), v });
   return v;

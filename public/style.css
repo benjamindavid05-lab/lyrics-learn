@@ -787,3 +787,9 @@ summary:hover{transform:translateX(3px)}
 .cell .sv:disabled{opacity:.15;cursor:default}
 .cell.done .sv.on{color:#0a0a0a}
 .goalwin .btn{margin-left:10px;vertical-align:middle}
+
+/* minutage de mots estimé : balayage doux sur toute la ligne plutôt que des mots qui sautent */
+.ln.playing.approx .orig{background:linear-gradient(90deg,rgba(126,224,195,.6) var(--lp,0%),rgba(126,224,195,.14) var(--lp,0%))}
+.ln.playing.approx .w{color:inherit}
+.syncst.warn{color:#8a5a00;flex-wrap:wrap}
+@media(prefers-color-scheme:dark){.syncst.warn{color:#ffd480}}
