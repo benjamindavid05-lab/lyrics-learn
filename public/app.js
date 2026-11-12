@@ -50,10 +50,30 @@ function lineKind(t) {
 }
 
 let pendingPlayer = '';
-async function addSong({ title, artist, url, lyrics, gid, sample, example }) {
+const okCover = (u) => typeof u === 'string' && /^https:\/\/[\w.-]+\/[^\s'"()]+$/.test(u);
+// pochettes des chansons déjà enregistrées : retrouvées une seule fois via la recherche Genius
+let coverBusy = false;
+async function ensureCovers() {
+  if (coverBusy) return; coverBusy = true;
+  try {
+    let changed = false;
+    for (const x of Object.values(state.songs)) {
+      if (x.cover !== undefined || x.sample || !x.title) continue;
+      try {
+        const f = await api('/api/search?q=' + encodeURIComponent([x.artist, x.title].filter(Boolean).join(' ')));
+        if (f.needsToken) break;
+        const flat = (v) => String(v || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+        const hit = (f.hits || []).find((h) => flat(h.title) === flat(x.title)) || (f.hits || [])[0];
+        x.cover = hit && okCover(hit.thumb) ? hit.thumb : ''; changed = true;
+      } catch { break; }
+    }
+    if (changed) { save(); renderHome(); }
+  } finally { coverBusy = false; }
+}
+async function addSong({ title, artist, url, lyrics, gid, sample, example, cover }) {
   const lines = lyrics.split('\n').map((text) => ({ text: text.trimEnd() }));
   const id = (url || `${artist}-${title}`).toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 80) + '-' + Date.now().toString(36);
-  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, example: !!example, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
+  state.songs[id] = { id, title, artist, url: url || '', gid: gid || '', sample: !!sample, example: !!example, cover: okCover(cover) ? cover : undefined, lines, target: state.target, source: 'auto', goal: { size: 8, words: [] }, added: Date.now() };
   if (pendingPlayer && !sample) { state.songs[id].players = state.songs[id].players || {}; const k = setPlayer(state.songs[id], pendingPlayer, true); if (k && MAIN_SERVICES.includes(k) && (k !== 'spotify' || spot.isConnected() || spotifyId)) state.songs[id].playerPref = k; }
   pendingPlayer = '';
   state.current = id;
@@ -329,12 +349,13 @@ function renderHome() {
   renderStart();
   $('#homeSongs').innerHTML = songs.map((x) => {
     const done = x.goal.words.filter((w) => w.done).length, tot = x.goal.words.length;
-    return `<div class="card" data-id="${x.id}" role="button" tabindex="0">
+    return `<div class="card${okCover(x.cover) ? ' has-cover' : ''}" data-id="${x.id}" role="button" tabindex="0"${okCover(x.cover) ? ` style="--cover:url('${esc(x.cover)}')"` : ''}>
       <button class="del" data-del="${x.id}" aria-label="${t('common.delete')}">✕</button>
       <div><div class="ct1">${normLang(x.source) ? flagHtml(normLang(x.source)) + ' ' : ''}${esc(x.artist || t('common.song'))}</div><h3 dir="auto">${esc(x.title)}</h3></div>
       <div><div class="mini"><span>${tot ? t('card.progress', { done, tot }) : t('card.nogoal')}</span><span>${esc(x.id === state.current ? t('card.current') : '')}</span></div>
         <div class="minibar"><i style="width:${tot ? (done / tot) * 100 : 0}%"></i></div></div></div>`;
   }).join('') + '<button class="card new" id="homeNew" type="button"><span>+</span><small>' + t('card.new') + '</small></button>';
+  ensureCovers();
 }
 $('#homeSongs').addEventListener('click', async (e) => {
   if (e.target.closest('#homeNew')) return songsDlg.showModal();
@@ -1524,7 +1545,7 @@ async function useText(raw, meta = {}) {
   await addSong({
     title: t || $('#mTitle').value.trim() || name || t('common.untitled'),
     artist: ar || $('#mArtist').value.trim() || artist,
-    url: meta.url || '', lyrics, gid: meta.id || '', example: !!meta.example
+    url: meta.url || '', lyrics, gid: meta.id || '', example: !!meta.example, cover: meta.thumb
   });
   return true;
 }
